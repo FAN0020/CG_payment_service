@@ -1,0 +1,55 @@
+═══════════════════════════════════════════════════════════════════
+  INTEGRATION NOTE: Payment Service → Mainline Connection
+═══════════════════════════════════════════════════════════════════
+
+This payment service is a STANDALONE microservice. Everything you need
+to run and deploy it is inside this folder.
+
+However, to integrate with the ClassGuru mainline service, the lead
+developer needs to ensure the following exists in the MAIN REPO:
+
+┌─────────────────────────────────────────────────────────────────┐
+│ File: CG_plugins/plugins/payment-gateway.plugin.ts              │
+│ Purpose: Mainline plugin that calls this payment service API    │
+└─────────────────────────────────────────────────────────────────┘
+
+This plugin exposes two operations to the mainline orchestrator:
+  • payment.subscribe  → Creates Stripe checkout session
+  • payment.verify     → Checks subscription status
+
+The plugin makes HTTP calls to this payment service:
+  • POST http://localhost:8790/api/payment/create-subscription
+  • POST http://localhost:8790/api/payment/verify-subscription
+
+┌─────────────────────────────────────────────────────────────────┐
+│ File: config.json (in main repo)                                │
+│ Purpose: Configure payment service URL                          │
+└─────────────────────────────────────────────────────────────────┘
+
+Required configuration:
+{
+  "services": {
+    "paymentService": {
+      "url": "http://localhost:8790"
+    }
+  }
+}
+
+┌─────────────────────────────────────────────────────────────────┐
+│ File: CG_plugins/plugins/index.ts (in main repo)                │
+│ Purpose: Register payment gateway plugin                        │
+└─────────────────────────────────────────────────────────────────┘
+
+Must import and export the payment-gateway plugin.
+
+═══════════════════════════════════════════════════════════════════
+
+Summary:
+  1. This folder (CG_payment_service) is your complete payment service
+  2. Hand it to lead developer as-is
+  3. Lead developer ensures mainline has the payment-gateway plugin
+  4. Both services must share the same JWT_SECRET
+  5. Start this service BEFORE starting mainline
+
+═══════════════════════════════════════════════════════════════════
+

@@ -78,10 +78,12 @@ export async function registerPaymentRoutes(
         currency: finalCurrency,
         idempotencyKey: idempotency_key
       })
+      console.log('[DEBUG] Step 1: Starting idempotency check')
 
       // ========== IDEMPOTENCY CHECK ==========
       // Check if this request was already processed
       const existingOrderId = db.checkIdempotency(idempotency_key, userId)
+      console.log('[DEBUG] Step 2: Idempotency check complete, existingOrderId:', existingOrderId)
       if (existingOrderId) {
         const existingOrder = db.getOrderById(existingOrderId)
         logger.info('Idempotency check: returning existing order', {
@@ -123,6 +125,7 @@ export async function registerPaymentRoutes(
         throw new ValidationError(`Product configuration not found for: ${productId}`)
       }
 
+      console.log('[DEBUG] Step 3: Creating order via internal handler')
       // Step 1: Create order via internal handler
       const orderResult = await handlerRegistry.execute(
         'create-order',
@@ -144,9 +147,11 @@ export async function registerPaymentRoutes(
       }
 
       const orderId = orderResult.data.order_id
+      console.log('[DEBUG] Step 4: Order created, orderId:', orderId)
 
       // Record idempotency AFTER order creation
       db.recordIdempotency(idempotency_key, userId, orderId, 24)
+      console.log('[DEBUG] Step 5: Idempotency recorded, calling Stripe API...')
 
       // Step 2: Create Stripe checkout session
       const session = await stripeManager.createCheckoutSession({
@@ -157,6 +162,8 @@ export async function registerPaymentRoutes(
         cancelUrl: config.cancelUrl
       })
 
+      console.log('[DEBUG] Step 6: Stripe session created, sessionId:', session.id)
+
       // Step 3: Update order with Stripe session ID
       await handlerRegistry.execute(
         'update-subscription',
@@ -166,6 +173,7 @@ export async function registerPaymentRoutes(
         },
         userId
       )
+      console.log('[DEBUG] Step 7: Order updated with session ID')
 
       logger.info('Subscription creation successful', {
         requestId,
@@ -186,6 +194,8 @@ export async function registerPaymentRoutes(
       })
 
     } catch (error: any) {
+      console.log('[DEBUG] ERROR caught in create-subscription handler:', error.message)
+      console.log('[DEBUG] Error type:', error.constructor.name)
       logger.error('Create subscription failed', {
         requestId,
         error: error.message

@@ -33,7 +33,9 @@ export class StripeManager {
    * Create a Stripe Checkout Session for subscription
    */
   async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
+    console.log('[STRIPE DEBUG] Starting createCheckoutSession, orderId:', params.orderId)
     try {
+      console.log('[STRIPE DEBUG] Creating session config...')
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         mode: 'subscription',
         line_items: [
@@ -59,7 +61,9 @@ export class StripeManager {
         sessionConfig.customer_email = params.customerEmail
       }
 
+      console.log('[STRIPE DEBUG] Calling Stripe API checkout.sessions.create()...')
       const session = await this.stripe.checkout.sessions.create(sessionConfig)
+      console.log('[STRIPE DEBUG] Stripe API call successful, sessionId:', session.id)
 
       logger.info('Stripe checkout session created', {
         sessionId: session.id,
@@ -69,10 +73,13 @@ export class StripeManager {
 
       return session
     } catch (error: any) {
+      console.log('[STRIPE DEBUG] ERROR in Stripe API call:', error.message)
+      console.log('[STRIPE DEBUG] Error type:', error.constructor.name)
       logger.error('Failed to create Stripe checkout session', {
         error: error.message,
         orderId: params.orderId
       })
+      console.log('[STRIPE DEBUG] Throwing CustomStripeError...')
       throw new CustomStripeError(`Failed to create checkout session: ${error.message}`)
     }
   }

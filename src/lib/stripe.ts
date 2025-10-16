@@ -19,78 +19,15 @@ export interface StripeSubscriptionInfo {
 
 export class StripeManager {
   private stripe: Stripe
-  private testMode: boolean
 
   constructor(secretKey: string) {
     if (!secretKey || !secretKey.startsWith('sk_')) {
       throw new Error('Invalid Stripe secret key')
     }
-    this.testMode = secretKey.includes('_mock_') || process.env.STRIPE_TEST_MOCK === 'true'
     
-    if (this.testMode) {
-      console.log('[STRIPE-MANAGER] Running in MOCK TEST MODE')
-      // Create a mock Stripe object
-      this.stripe = this.createMockStripe() as any
-    } else {
-      this.stripe = new Stripe(secretKey, {
-        apiVersion: '2024-12-18.acacia'
-      })
-    }
-  }
-  
-  private createMockStripe() {
-    let sessionCounter = 0
-    let customerCounter = 0
-    
-    return {
-      checkout: {
-        sessions: {
-          create: async (params: any) => {
-            console.log('[MOCK-STRIPE] Creating checkout session for order:', params.metadata?.orderId)
-            return {
-              id: `cs_mock_${++sessionCounter}`,
-              url: `https://checkout.stripe.com/mock/session_${sessionCounter}`,
-              customer: params.customer || `cus_mock_${customerCounter}`,
-              payment_status: 'unpaid',
-              status: 'open',
-              mode: 'subscription'
-            }
-          }
-        }
-      },
-      customers: {
-        create: async (params: any) => {
-          console.log('[MOCK-STRIPE] Creating customer:', params.email)
-          return {
-            id: `cus_mock_${++customerCounter}`,
-            email: params.email,
-            metadata: params.metadata || {}
-          }
-        },
-        retrieve: async (id: string) => {
-          return {
-            id,
-            email: 'test@example.com'
-          }
-        }
-      },
-      subscriptions: {
-        retrieve: async (id: string) => {
-          return {
-            id,
-            status: 'active',
-            customer: 'cus_mock_1'
-          }
-        },
-        update: async (id: string, params: any) => {
-          return {
-            id,
-            ...params,
-            status: 'active'
-          }
-        }
-      }
-    }
+    this.stripe = new Stripe(secretKey, {
+      apiVersion: '2024-12-18.acacia'
+    })
   }
 
   /**

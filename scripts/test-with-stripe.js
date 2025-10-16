@@ -160,9 +160,10 @@ try {
     console.error('⚠️  Check your Stripe configuration in .env:')
     console.error('   - STRIPE_SECRET_KEY should start with sk_test_')
     console.error('   - STRIPE_MONTHLY_PRICE_ID should start with price_')
-    console.error('   See STRIPE_SETUP_GUIDE.md for instructions\n')
+    console.error('   See docs/README.md for setup instructions\n')
   }
   
   process.exit(1)
 }
+
 

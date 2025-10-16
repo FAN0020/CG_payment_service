@@ -249,7 +249,7 @@ STRIPE_MONTHLY_PRICE_ID=price_your_price_id_here
 JWT_SECRET=your_shared_secret_at_least_32_characters
 
 # Database
-DB_PATH=./payment.db
+DB_PATH=./data/payment.db
 
 # Plan details
 MONTHLY_PLAN_AMOUNT=9.90
@@ -588,8 +588,8 @@ Idempotency tracking for Stripe webhook events.
 ### Query Database
 
 ```bash
-sqlite3 payment.db "SELECT * FROM subscription_orders;"
-sqlite3 payment.db "SELECT * FROM payment_events ORDER BY processed_at DESC LIMIT 10;"
+sqlite3 data/payment.db "SELECT * FROM subscription_orders;"
+sqlite3 data/payment.db "SELECT * FROM payment_events ORDER BY processed_at DESC LIMIT 10;"
 ```
 
 ---
@@ -770,10 +770,10 @@ LOG_LEVEL=info
 curl http://localhost:8790/api/payment/health
 
 # View database orders
-sqlite3 payment.db "SELECT * FROM subscription_orders;"
+sqlite3 data/payment.db "SELECT * FROM subscription_orders;"
 
 # View processed events
-sqlite3 payment.db "SELECT * FROM payment_events ORDER BY processed_at DESC LIMIT 10;"
+sqlite3 data/payment.db "SELECT * FROM payment_events ORDER BY processed_at DESC LIMIT 10;"
 
 # Check logs for errors
 # (logs are output to console in development)

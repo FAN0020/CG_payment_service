@@ -1,0 +1,13 @@
+{
+  "name": "idempotency-tests",
+  "version": "1.0.0",
+  "description": "Idempotency testing suite for payment service",
+  "scripts": {
+    "test": "node test-runner.js",
+    "start-mock": "./setup-mock-stripe.sh"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  }
+}
+

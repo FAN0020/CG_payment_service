@@ -77,6 +77,14 @@ export class PaymentDatabase {
   createOrder(order: Omit<SubscriptionOrder, 'created_at' | 'updated_at'>): SubscriptionOrder {
     const now = Date.now()
     const fullOrder: SubscriptionOrder = {
+      stripe_session_id: null,
+      stripe_subscription_id: null,
+      stripe_customer_id: null,
+      stripe_customer_email: null,
+      payment_method: null,
+      platform: null,
+      client_ref: null,
+      expires_at: null,
       ...order,
       created_at: now,
       updated_at: now

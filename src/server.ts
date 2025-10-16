@@ -34,7 +34,7 @@ function loadConfig() {
 
   return {
     port: parseInt(process.env.PORT || '8790', 10),
-    dbPath: process.env.DB_PATH || './data/payment.db',
+    dbPath: process.env.DB_PATH || './payment.db',
     stripeSecretKey: process.env.STRIPE_SECRET_KEY!,
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
     jwtSecret: process.env.JWT_SECRET!,
@@ -82,7 +82,7 @@ async function main() {
     })
 
     // Register static file serving for frontend
-    const frontendPath = join(__dirname, '..', 'examples', 'frontend')
+    const frontendPath = join(__dirname, '..', 'frontend')
     await fastify.register(fastifyStatic, {
       root: frontendPath,
       prefix: '/payment/',

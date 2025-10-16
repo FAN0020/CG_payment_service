@@ -8,9 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "build": "tsc",
-    "type-check": "tsc --noEmit",
-    "generate-jwt": "node scripts/generate-test-jwt.js",
-    "test:stripe": "node scripts/test-with-stripe.js"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

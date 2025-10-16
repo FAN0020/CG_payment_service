@@ -64,7 +64,7 @@ paths:
                   example: 550e8400-e29b-41d4-a716-446655440000
                 product_id:
                   type: string
-                  enum: [monthly-plan, annual-plan, basic-plan, premium-plan]
+                  enum: [trial-plan, monthly-plan, annual-plan, basic-plan, premium-plan]
                   default: monthly-plan
                   description: Product to subscribe to
                   example: monthly-plan

@@ -9,6 +9,7 @@
     "start": "tsx src/server.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
+    "demo": "bash scripts/run-demo.sh",
     "generate-jwt": "node scripts/generate-test-jwt.js",
     "test:stripe": "node scripts/test-with-stripe.js"
   },

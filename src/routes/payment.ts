@@ -6,6 +6,7 @@ import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
+import { getProductConfig, isValidProductId } from '../config/products.js'
 
 interface PaymentConfig {
   priceId: string
@@ -13,15 +14,6 @@ interface PaymentConfig {
   planCurrency: string
   successUrl: string
   cancelUrl: string
-}
-
-// Product configuration mapping
-const PRODUCT_CONFIG: Record<string, { priceId: string; amount: number; currency: string; durationDays?: number }> = {
-  'trial-plan': { priceId: process.env.STRIPE_TRIAL_PRICE_ID || '', amount: 1.00, currency: 'USD', durationDays: 2 },
-  'monthly-plan': { priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '', amount: 12.90, currency: 'USD' },
-  'annual-plan': { priceId: process.env.STRIPE_ANNUAL_PRICE_ID || '', amount: 99.00, currency: 'SGD' },
-  'basic-plan': { priceId: process.env.STRIPE_BASIC_PRICE_ID || '', amount: 4.90, currency: 'SGD' },
-  'premium-plan': { priceId: process.env.STRIPE_PREMIUM_PRICE_ID || '', amount: 19.90, currency: 'SGD' }
 }
 
 /**
@@ -105,24 +97,27 @@ export async function registerPaymentRoutes(
         })
       }
 
-      // ========== WHITELIST VALIDATION ==========
-      // Note: Basic validation already done by Zod schema, but we double-check for safety
-      if (!PAYMENT_WHITELISTS.PRODUCTS.includes(productId as any)) {
-        throw new ValidationError(`Invalid product_id: ${productId}. Allowed: ${PAYMENT_WHITELISTS.PRODUCTS.join(', ')}`)
+      // ========== PRODUCT VALIDATION ==========
+      // Validate product exists and is configured
+      if (!isValidProductId(productId)) {
+        throw new ValidationError(
+          `Invalid or unconfigured product: ${productId}. Please check your product configuration.`
+        )
       }
 
-      if (!PAYMENT_WHITELISTS.CURRENCIES.includes(finalCurrency as any)) {
-        throw new ValidationError(`Invalid currency: ${finalCurrency}. Allowed: ${PAYMENT_WHITELISTS.CURRENCIES.join(', ')}`)
+      // Get product configuration (centralized)
+      const productConfig = getProductConfig(productId)
+
+      // Validate currency matches product (or use product's default)
+      if (finalCurrency !== productConfig.currency) {
+        logger.warn('Currency mismatch, using product default', {
+          requested: finalCurrency,
+          productCurrency: productConfig.currency
+        })
       }
 
       if (paymentMethod && !PAYMENT_WHITELISTS.PAYMENT_METHODS.includes(paymentMethod as any)) {
         throw new ValidationError(`Invalid payment_method: ${paymentMethod}. Allowed: ${PAYMENT_WHITELISTS.PAYMENT_METHODS.join(', ')}`)
-      }
-
-      // Get product configuration
-      const productConfig = PRODUCT_CONFIG[productId]
-      if (!productConfig || !productConfig.priceId) {
-        throw new ValidationError(`Product configuration not found for: ${productId}`)
       }
 
       console.log('[DEBUG] Step 3: Creating order via internal handler')

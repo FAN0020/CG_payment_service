@@ -81,17 +81,27 @@ async function main() {
       credentials: true
     })
 
-    // Register static file serving for frontend
-    const frontendPath = join(__dirname, '..', 'examples', 'frontend')
+    // Register static file serving for demo frontend
+    const demoPath = join(__dirname, '..', 'demo')
     await fastify.register(fastifyStatic, {
-      root: frontendPath,
+      root: demoPath,
       prefix: '/payment/',
-      decorateReply: false
+      decorateReply: true  // Enable sendFile method on reply
     })
 
     // Serve index.html at /payment route
     fastify.get('/payment', async (request, reply) => {
       return reply.sendFile('index.html')
+    })
+
+    // Serve success page
+    fastify.get('/payment/success', async (request, reply) => {
+      return reply.sendFile('success.html')
+    })
+
+    // Serve cancel page
+    fastify.get('/payment/cancel', async (request, reply) => {
+      return reply.sendFile('cancel.html')
     })
 
     // Add raw body support for webhook signature verification

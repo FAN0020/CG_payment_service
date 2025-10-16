@@ -88,7 +88,7 @@ async function main() {
     })
 
     // Register routes
-    await registerPaymentRoutes(fastify, jwtManager, stripeManager, {
+    await registerPaymentRoutes(fastify, jwtManager, stripeManager, db, {
       priceId: config.stripePriceId,
       planAmount: config.planAmount,
       planCurrency: config.planCurrency,

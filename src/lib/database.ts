@@ -17,27 +17,30 @@ export class PaymentDatabase {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS subscription_orders (
         order_id TEXT PRIMARY KEY,
-        user_email TEXT NOT NULL,
-        user_id TEXT,
+        user_id TEXT NOT NULL,
         stripe_session_id TEXT,
         stripe_subscription_id TEXT UNIQUE,
         stripe_customer_id TEXT,
+        stripe_customer_email TEXT,
         status TEXT NOT NULL CHECK(status IN ('pending', 'active', 'canceled', 'expired', 'incomplete')),
         plan TEXT NOT NULL,
         amount REAL NOT NULL,
         currency TEXT NOT NULL,
+        payment_method TEXT,
+        platform TEXT,
+        client_ref TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         expires_at INTEGER
       );
 
-      CREATE INDEX IF NOT EXISTS idx_orders_user_email ON subscription_orders(user_email);
       CREATE INDEX IF NOT EXISTS idx_orders_user_id ON subscription_orders(user_id);
       CREATE INDEX IF NOT EXISTS idx_orders_stripe_sub ON subscription_orders(stripe_subscription_id);
       CREATE INDEX IF NOT EXISTS idx_orders_status ON subscription_orders(status);
+      CREATE INDEX IF NOT EXISTS idx_orders_stripe_session ON subscription_orders(stripe_session_id);
     `)
 
-    // Create payment_events table for idempotency
+    // Create payment_events table for webhook idempotency
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS payment_events (
         event_id TEXT PRIMARY KEY,
@@ -48,6 +51,20 @@ export class PaymentDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_events_type ON payment_events(event_type);
       CREATE INDEX IF NOT EXISTS idx_events_order ON payment_events(order_id);
+    `)
+
+    // Create client_idempotency table for API request idempotency
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS client_idempotency (
+        idempotency_key TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        order_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_idempotency_user ON client_idempotency(user_id);
+      CREATE INDEX IF NOT EXISTS idx_idempotency_expires ON client_idempotency(expires_at);
     `)
 
     console.log('[DB] Database initialized successfully')
@@ -68,11 +85,13 @@ export class PaymentDatabase {
     try {
       const stmt = this.db.prepare(`
         INSERT INTO subscription_orders (
-          order_id, user_email, user_id, stripe_session_id, stripe_subscription_id,
-          stripe_customer_id, status, plan, amount, currency, created_at, updated_at, expires_at
+          order_id, user_id, stripe_session_id, stripe_subscription_id,
+          stripe_customer_id, stripe_customer_email, status, plan, amount, currency,
+          payment_method, platform, client_ref, created_at, updated_at, expires_at
         ) VALUES (
-          @order_id, @user_email, @user_id, @stripe_session_id, @stripe_subscription_id,
-          @stripe_customer_id, @status, @plan, @amount, @currency, @created_at, @updated_at, @expires_at
+          @order_id, @user_id, @stripe_session_id, @stripe_subscription_id,
+          @stripe_customer_id, @stripe_customer_email, @status, @plan, @amount, @currency,
+          @payment_method, @platform, @client_ref, @created_at, @updated_at, @expires_at
         )
       `)
 
@@ -137,26 +156,17 @@ export class PaymentDatabase {
     }
   }
 
-  getActiveSubscriptionByEmail(userEmail: string): SubscriptionOrder | null {
+  getActiveSubscriptionByUserId(userId: string): SubscriptionOrder | null {
     try {
       const stmt = this.db.prepare(`
         SELECT * FROM subscription_orders
-        WHERE user_email = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > ?)
+        WHERE user_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > ?)
         ORDER BY created_at DESC
         LIMIT 1
       `)
-      return stmt.get(userEmail, Date.now()) as SubscriptionOrder | undefined || null
+      return stmt.get(userId, Date.now()) as SubscriptionOrder | undefined || null
     } catch (error: any) {
       throw new DatabaseError(`Failed to get active subscription: ${error.message}`)
-    }
-  }
-
-  getOrdersByEmail(userEmail: string): SubscriptionOrder[] {
-    try {
-      const stmt = this.db.prepare('SELECT * FROM subscription_orders WHERE user_email = ? ORDER BY created_at DESC')
-      return stmt.all(userEmail) as SubscriptionOrder[]
-    } catch (error: any) {
-      throw new DatabaseError(`Failed to get orders by email: ${error.message}`)
     }
   }
 
@@ -204,6 +214,51 @@ export class PaymentDatabase {
         return existing
       }
       throw new DatabaseError(`Failed to record event: ${error.message}`)
+    }
+  }
+
+  // ============================================================================
+  // Client Idempotency Methods (Prevent duplicate API calls)
+  // ============================================================================
+
+  checkIdempotency(idempotencyKey: string, userId: string): string | null {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT order_id FROM client_idempotency
+        WHERE idempotency_key = ? AND user_id = ? AND expires_at > ?
+      `)
+      const record = stmt.get(idempotencyKey, userId, Date.now()) as { order_id: string } | undefined
+      return record?.order_id || null
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to check idempotency: ${error.message}`)
+    }
+  }
+
+  recordIdempotency(idempotencyKey: string, userId: string, orderId: string, ttlHours: number = 24): void {
+    const now = Date.now()
+    const expiresAt = now + (ttlHours * 60 * 60 * 1000)
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO client_idempotency (idempotency_key, user_id, order_id, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      stmt.run(idempotencyKey, userId, orderId, now, expiresAt)
+    } catch (error: any) {
+      // If duplicate key, that's fine - the check already passed
+      if (!error.message.includes('UNIQUE constraint failed')) {
+        throw new DatabaseError(`Failed to record idempotency: ${error.message}`)
+      }
+    }
+  }
+
+  cleanExpiredIdempotencyRecords(): number {
+    try {
+      const stmt = this.db.prepare('DELETE FROM client_idempotency WHERE expires_at < ?')
+      const result = stmt.run(Date.now())
+      return result.changes
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to clean expired idempotency records: ${error.message}`)
     }
   }
 

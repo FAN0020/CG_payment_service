@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import { CreateSubscriptionRequestSchema, VerifySubscriptionRequestSchema, ValidationError } from '../types/index.js'
+import { CreateSubscriptionRequestSchema, VerifySubscriptionRequestSchema, ValidationError, PAYMENT_WHITELISTS } from '../types/index.js'
 import { JWTManager } from '../lib/jwt.js'
 import { StripeManager } from '../lib/stripe.js'
+import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
@@ -14,6 +15,14 @@ interface PaymentConfig {
   cancelUrl: string
 }
 
+// Product configuration mapping
+const PRODUCT_CONFIG: Record<string, { priceId: string; amount: number; currency: string }> = {
+  'monthly-plan': { priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '', amount: 9.90, currency: 'SGD' },
+  'annual-plan': { priceId: process.env.STRIPE_ANNUAL_PRICE_ID || '', amount: 99.00, currency: 'SGD' },
+  'basic-plan': { priceId: process.env.STRIPE_BASIC_PRICE_ID || '', amount: 4.90, currency: 'SGD' },
+  'premium-plan': { priceId: process.env.STRIPE_PREMIUM_PRICE_ID || '', amount: 19.90, currency: 'SGD' }
+}
+
 /**
  * Payment API routes
  */
@@ -21,6 +30,7 @@ export async function registerPaymentRoutes(
   fastify: FastifyInstance,
   jwtManager: JWTManager,
   stripeManager: StripeManager,
+  db: PaymentDatabase,
   config: PaymentConfig
 ): Promise<void> {
 
@@ -38,31 +48,85 @@ export async function registerPaymentRoutes(
         throw new ValidationError(`Invalid request: ${validationResult.error.message}`)
       }
 
-      const { jwt: token } = validationResult.data
+      const { jwt: token, idempotency_key, payment_gateway } = validationResult.data
 
       // Verify and decode JWT
       const payload = jwtManager.verify(token)
-      const userEmail = payload.email
-      const userId = payload.userId || 'unknown'
+      const userId = payload.sub
+      const productId = payload.product_id || 'monthly-plan'  // Default to monthly plan
+      const currency = payload.currency || config.planCurrency
+      const paymentMethod = payload.payment_method
+      const platform = payload.platform
+      const clientRef = payload.client_ref
 
       logger.info('Create subscription request', {
         requestId,
         userId,
-        userEmail
+        productId,
+        currency,
+        idempotencyKey: idempotency_key
       })
+
+      // ========== IDEMPOTENCY CHECK ==========
+      // Check if this request was already processed
+      const existingOrderId = db.checkIdempotency(idempotency_key, userId)
+      if (existingOrderId) {
+        const existingOrder = db.getOrderById(existingOrderId)
+        logger.info('Idempotency check: returning existing order', {
+          requestId,
+          userId,
+          orderId: existingOrderId
+        })
+        
+        // Return the existing order's checkout URL (if still pending) or order info
+        return reply.code(200).send({
+          status_code: 200,
+          message: 'Order already exists (idempotent request)',
+          data: {
+            checkout_url: existingOrder?.stripe_session_id ? `https://checkout.stripe.com/c/pay/${existingOrder.stripe_session_id}` : null,
+            order_id: existingOrderId,
+            session_id: existingOrder?.stripe_session_id,
+            status: existingOrder?.status
+          }
+        })
+      }
+
+      // ========== WHITELIST VALIDATION ==========
+      // Validate product_id
+      if (!PAYMENT_WHITELISTS.PRODUCTS.includes(productId as any)) {
+        throw new ValidationError(`Invalid product_id: ${productId}. Allowed: ${PAYMENT_WHITELISTS.PRODUCTS.join(', ')}`)
+      }
+
+      // Validate currency
+      if (!PAYMENT_WHITELISTS.CURRENCIES.includes(currency as any)) {
+        throw new ValidationError(`Invalid currency: ${currency}. Allowed: ${PAYMENT_WHITELISTS.CURRENCIES.join(', ')}`)
+      }
+
+      // Validate payment_method (if provided)
+      if (paymentMethod && !PAYMENT_WHITELISTS.PAYMENT_METHODS.includes(paymentMethod as any)) {
+        throw new ValidationError(`Invalid payment_method: ${paymentMethod}. Allowed: ${PAYMENT_WHITELISTS.PAYMENT_METHODS.join(', ')}`)
+      }
+
+      // Get product configuration
+      const productConfig = PRODUCT_CONFIG[productId]
+      if (!productConfig || !productConfig.priceId) {
+        throw new ValidationError(`Product configuration not found for: ${productId}`)
+      }
 
       // Step 1: Create order via internal handler
       const orderResult = await handlerRegistry.execute(
         'create-order',
         {
-          userEmail,
           userId,
-          plan: 'monthly_9.9_SGD',
-          amount: config.planAmount,
-          currency: config.planCurrency
+          stripeCustomerEmail: undefined,  // No email in JWT anymore
+          plan: `${productId}_${productConfig.amount}_${currency}`,
+          amount: productConfig.amount,
+          currency,
+          paymentMethod,
+          platform,
+          clientRef
         },
-        userId,
-        userEmail
+        userId
       )
 
       if (orderResult.status_code !== 200) {
@@ -71,11 +135,14 @@ export async function registerPaymentRoutes(
 
       const orderId = orderResult.data.order_id
 
+      // Record idempotency AFTER order creation
+      db.recordIdempotency(idempotency_key, userId, orderId, 24)
+
       // Step 2: Create Stripe checkout session
       const session = await stripeManager.createCheckoutSession({
-        userEmail,
+        customerEmail: undefined,  // No email from JWT
         orderId,
-        priceId: config.priceId,
+        priceId: productConfig.priceId,
         successUrl: config.successUrl,
         cancelUrl: config.cancelUrl
       })
@@ -87,15 +154,15 @@ export async function registerPaymentRoutes(
           orderId,
           stripeSessionId: session.id
         },
-        userId,
-        userEmail
+        userId
       )
 
       logger.info('Subscription creation successful', {
         requestId,
         userId,
         orderId,
-        sessionId: session.id
+        sessionId: session.id,
+        productId
       })
 
       return reply.code(200).send({
@@ -146,21 +213,18 @@ export async function registerPaymentRoutes(
 
       // Verify and decode JWT
       const payload = jwtManager.verify(token)
-      const userEmail = payload.email
-      const userId = payload.userId || 'unknown'
+      const userId = payload.sub
 
       logger.info('Verify subscription request', {
         requestId,
-        userId,
-        userEmail
+        userId
       })
 
       // Query subscription via internal handler
       const queryResult = await handlerRegistry.execute(
         'query-subscription',
-        { userEmail },
-        userId,
-        userEmail
+        { userId },
+        userId
       )
 
       if (queryResult.status_code !== 200) {

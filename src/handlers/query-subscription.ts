@@ -4,7 +4,7 @@ import { logger } from '../lib/logger.js'
 
 /**
  * Internal Handler: Query Subscription
- * Queries subscription status by email, userId, or orderId
+ * Queries subscription status by userId or orderId
  */
 export function createBillingSubscriptionQueryHandler(db: PaymentDatabase) {
   return async (ctx: PluginContext): Promise<PluginResponse> => {
@@ -17,7 +17,7 @@ export function createBillingSubscriptionQueryHandler(db: PaymentDatabase) {
         throw new ValidationError(`Invalid input: ${validationResult.error.message}`)
       }
 
-      const { userEmail, userId: inputUserId, orderId } = validationResult.data
+      const { userId: inputUserId, orderId } = validationResult.data
 
       // Query logic
       let activeSubscription = null
@@ -32,26 +32,20 @@ export function createBillingSubscriptionQueryHandler(db: PaymentDatabase) {
             activeSubscription = order
           }
         }
-      } else if (userEmail) {
-        // Query by email
-        activeSubscription = db.getActiveSubscriptionByEmail(userEmail)
-        allOrders = db.getOrdersByEmail(userEmail)
-      } else if (inputUserId) {
+      } else if (inputUserId || userId) {
         // Query by user ID
-        allOrders = db.getOrdersByUserId(inputUserId)
-        const activeOrders = allOrders.filter(o => 
-          o.status === 'active' && (!o.expires_at || o.expires_at > Date.now())
-        )
-        activeSubscription = activeOrders[0] || null
+        const targetUserId = inputUserId || userId
+        activeSubscription = db.getActiveSubscriptionByUserId(targetUserId)
+        allOrders = db.getOrdersByUserId(targetUserId)
       } else {
-        throw new ValidationError('Must provide userEmail, userId, or orderId')
+        throw new ValidationError('Must provide userId or orderId')
       }
 
       const isActive = activeSubscription !== null
 
       logger.info('Subscription query completed', {
         requestId,
-        userId,
+        userId: inputUserId || userId,
         isActive,
         ordersFound: allOrders.length
       })

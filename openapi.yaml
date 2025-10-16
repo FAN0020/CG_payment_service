@@ -1,0 +1,296 @@
+openapi: 3.0.3
+info:
+  title: ClassGuru Payment Service API
+  version: 1.0.0
+  description: Standalone Stripe subscription billing microservice for ClassGuru
+  contact:
+    name: ClassGuru Support
+
+servers:
+  - url: http://localhost:8790
+    description: Local development
+  - url: https://api.classguru.com
+    description: Production
+
+security:
+  - JWT: []
+
+paths:
+  /api/payment/health:
+    get:
+      summary: Health check
+      description: Returns service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: payment
+                  timestamp:
+                    type: integer
+                    example: 1733011200000
+
+  /api/payment/create-subscription:
+    post:
+      summary: Create subscription checkout session
+      description: Creates a Stripe checkout session for new subscription. Returns checkout URL to redirect user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jwt
+                - idempotency_key
+              properties:
+                jwt:
+                  type: string
+                  description: JWT token with user identity and payment config
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                idempotency_key:
+                  type: string
+                  format: uuid
+                  description: Client-generated UUID v4 for duplicate prevention
+                  example: 550e8400-e29b-41d4-a716-446655440000
+                payment_gateway:
+                  type: string
+                  enum: [stripe]
+                  default: stripe
+                  description: Payment gateway to use
+      responses:
+        '200':
+          description: Checkout session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                status_code: 200
+                message: Checkout session created successfully
+                data:
+                  checkout_url: https://checkout.stripe.com/c/pay/cs_test_...
+                  order_id: order_abc123xyz
+                  session_id: cs_test_...
+                requestId: V1StGXR8_Z5jdHi6B-myT
+        '400':
+          description: Invalid request (bad JWT, missing idempotency_key, invalid product_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate request - returns existing order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                status_code: 200
+                message: Existing order returned (duplicate request)
+                data:
+                  checkout_url: https://checkout.stripe.com/c/pay/cs_test_...
+                  order_id: order_abc123xyz
+                  session_id: cs_test_...
+
+  /api/payment/verify-subscription:
+    post:
+      summary: Verify subscription status
+      description: Checks if user has an active subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jwt
+              properties:
+                jwt:
+                  type: string
+                  description: JWT token with user identity
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Subscription status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                active:
+                  summary: Active subscription
+                  value:
+                    status_code: 200
+                    message: Subscription status retrieved
+                    data:
+                      is_active: true
+                      subscription:
+                        order_id: order_abc123xyz
+                        plan: monthly-plan
+                        status: active
+                        expires_at: 1735689600000
+                        created_at: 1733011200000
+                    requestId: V1StGXR8_Z5jdHi6B-myT
+                inactive:
+                  summary: No active subscription
+                  value:
+                    status_code: 200
+                    message: Subscription status retrieved
+                    data:
+                      is_active: false
+                      subscription: null
+                    requestId: V1StGXR8_Z5jdHi6B-myT
+        '400':
+          description: Invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks/stripe:
+    post:
+      summary: Stripe webhook endpoint
+      description: Receives and processes Stripe events (signature verified)
+      security:
+        - StripeSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe event object
+      responses:
+        '200':
+          description: Event processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+        '400':
+          description: Invalid signature or event
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Operation completed successfully
+        data:
+          type: object
+        requestId:
+          type: string
+          example: V1StGXR8_Z5jdHi6B-myT
+
+    ErrorResponse:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: Invalid request
+        requestId:
+          type: string
+          example: V1StGXR8_Z5jdHi6B-myT
+
+    JWTPayload:
+      type: object
+      description: JWT token payload structure
+      required:
+        - sub
+        - iss
+        - iat
+        - exp
+      properties:
+        sub:
+          type: string
+          description: User ID (standard JWT subject claim)
+          example: user-123456
+        iss:
+          type: string
+          description: Issuer (must be "mainline")
+          example: mainline
+        iat:
+          type: integer
+          description: Issued at timestamp
+          example: 1699999000
+        exp:
+          type: integer
+          description: Expiration timestamp
+          example: 1700000000
+        product_id:
+          type: string
+          description: Product identifier (validated against whitelist)
+          enum: [monthly-plan, annual-plan, basic-plan, premium-plan]
+          example: monthly-plan
+        currency:
+          type: string
+          description: Currency code (validated against whitelist)
+          enum: [SGD, USD, EUR, MYR]
+          example: SGD
+        payment_method:
+          type: string
+          description: Payment method (validated against whitelist)
+          enum: [card, alipay, wechat, paynow, grabpay]
+          example: card
+        platform:
+          type: string
+          description: Platform identifier (metadata only)
+          example: web
+        client_ref:
+          type: string
+          description: Client reference for tracking (metadata only)
+          example: checkout_btn_v3
+        version:
+          type: string
+          description: API version (metadata only)
+          example: v1
+
+  securitySchemes:
+    JWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token signed with shared secret (HS256)
+    StripeSignature:
+      type: apiKey
+      in: header
+      name: stripe-signature
+      description: Stripe webhook signature for verification
+
+tags:
+  - name: Payment
+    description: Subscription payment operations
+  - name: Health
+    description: Service health monitoring
+  - name: Webhooks
+    description: External webhook handlers
+

@@ -7,7 +7,6 @@ import { z } from 'zod'
 export interface PluginContext {
   requestId: string
   userId: string
-  userEmail?: string
   timestamp: number
   inputs: Record<string, any>
 }
@@ -31,15 +30,18 @@ export interface PluginRegistry {
 
 export interface SubscriptionOrder {
   order_id: string
-  user_email: string
-  user_id?: string
+  user_id: string                      // Primary identifier (from JWT sub)
   stripe_session_id?: string
   stripe_subscription_id?: string
   stripe_customer_id?: string
+  stripe_customer_email?: string       // Email for Stripe only
   status: 'pending' | 'active' | 'canceled' | 'expired' | 'incomplete'
   plan: string
   amount: number
   currency: string
+  payment_method?: string              // From JWT
+  platform?: string                    // From JWT metadata
+  client_ref?: string                  // From JWT metadata
   created_at: number
   updated_at: number
   expires_at?: number
@@ -52,26 +54,58 @@ export interface PaymentEvent {
   order_id?: string
 }
 
+export interface ClientIdempotencyRecord {
+  idempotency_key: string
+  user_id: string
+  order_id: string
+  created_at: number
+  expires_at: number
+}
+
 // ============================================================================
 // JWT Payload
 // ============================================================================
 
+// Allowed values for validation
+const ALLOWED_PRODUCTS = ['monthly-plan', 'annual-plan', 'basic-plan', 'premium-plan'] as const
+const ALLOWED_CURRENCIES = ['SGD', 'USD', 'EUR', 'MYR'] as const
+const ALLOWED_PAYMENT_METHODS = ['card', 'alipay', 'wechat', 'paynow', 'grabpay'] as const
+
 export const JWTPayloadSchema = z.object({
-  userId: z.string().optional(),
-  email: z.string().email(),
-  username: z.string().optional(),
-  iat: z.number().optional(),
-  exp: z.number().optional()
+  // Standard JWT claims
+  sub: z.string().min(1, 'User ID (sub) is required'),  // User ID only
+  iss: z.string().default('mainline'),                  // Issuer
+  iat: z.number().optional(),                           // Issued at
+  exp: z.number().optional(),                           // Expiration
+  
+  // Payment configuration (validated against whitelist)
+  product_id: z.enum(ALLOWED_PRODUCTS).optional(),
+  currency: z.enum(ALLOWED_CURRENCIES).optional(),
+  payment_method: z.enum(ALLOWED_PAYMENT_METHODS).optional(),
+  
+  // Metadata for tracking/debugging only
+  platform: z.enum(['web', 'ios', 'android']).optional(),
+  client_ref: z.string().optional(),                    // Frontend tracking reference
+  version: z.string().default('v1')                     // Schema version
 })
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>
+
+// Export allowed values for use in validation
+export const PAYMENT_WHITELISTS = {
+  PRODUCTS: ALLOWED_PRODUCTS,
+  CURRENCIES: ALLOWED_CURRENCIES,
+  PAYMENT_METHODS: ALLOWED_PAYMENT_METHODS
+} as const
 
 // ============================================================================
 // API Request/Response Schemas
 // ============================================================================
 
 export const CreateSubscriptionRequestSchema = z.object({
-  jwt: z.string().min(1, 'JWT token is required')
+  jwt: z.string().min(1, 'JWT token is required'),
+  idempotency_key: z.string().min(1, 'Idempotency key is required'),  // Client-generated UUID
+  payment_gateway: z.enum(['stripe', 'paypal', 'alipay']).default('stripe').optional()  // For future extensibility
 })
 
 export const VerifySubscriptionRequestSchema = z.object({
@@ -86,16 +120,20 @@ export type VerifySubscriptionRequest = z.infer<typeof VerifySubscriptionRequest
 // ============================================================================
 
 export const CreateOrderInputSchema = z.object({
-  userEmail: z.string().email(),
-  userId: z.string().optional(),
+  userId: z.string().min(1, 'User ID is required'),
+  stripeCustomerEmail: z.string().email().optional(),  // Email for Stripe checkout only
   plan: z.string(),
   amount: z.number().positive(),
-  currency: z.string()
+  currency: z.string(),
+  paymentMethod: z.string().optional(),
+  platform: z.string().optional(),
+  clientRef: z.string().optional()
 })
 
 export const UpdateSubscriptionInputSchema = z.object({
   orderId: z.string().optional(),
-  userEmail: z.string().email().optional(),
+  userId: z.string().optional(),
+  stripeCustomerEmail: z.string().email().optional(),
   stripeSessionId: z.string().optional(),
   stripeSubscriptionId: z.string().optional(),
   stripeCustomerId: z.string().optional(),
@@ -104,7 +142,6 @@ export const UpdateSubscriptionInputSchema = z.object({
 })
 
 export const QuerySubscriptionInputSchema = z.object({
-  userEmail: z.string().email().optional(),
   userId: z.string().optional(),
   orderId: z.string().optional()
 })

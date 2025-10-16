@@ -18,7 +18,7 @@ export function createBillingOrderCreateHandler(db: PaymentDatabase) {
         throw new ValidationError(`Invalid input: ${validationResult.error.message}`)
       }
 
-      const { userEmail, userId: inputUserId, plan, amount, currency } = validationResult.data
+      const { userId: inputUserId, stripeCustomerEmail, plan, amount, currency, paymentMethod, platform, clientRef } = validationResult.data
 
       // Generate unique order ID
       const orderId = `order_${nanoid(16)}`
@@ -26,19 +26,22 @@ export function createBillingOrderCreateHandler(db: PaymentDatabase) {
       // Create order in database
       const order = db.createOrder({
         order_id: orderId,
-        user_email: userEmail,
         user_id: inputUserId || userId,
+        stripe_customer_email: stripeCustomerEmail,
         status: 'pending',
         plan,
         amount,
-        currency
+        currency,
+        payment_method: paymentMethod,
+        platform,
+        client_ref: clientRef
       })
 
       logger.info('Order created successfully', {
         requestId,
-        userId,
+        userId: order.user_id,
         orderId: order.order_id,
-        userEmail: order.user_email
+        plan: order.plan
       })
 
       return {
@@ -46,7 +49,7 @@ export function createBillingOrderCreateHandler(db: PaymentDatabase) {
         message: 'Order created successfully',
         data: {
           order_id: order.order_id,
-          user_email: order.user_email,
+          user_id: order.user_id,
           status: order.status,
           plan: order.plan,
           amount: order.amount,

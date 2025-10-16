@@ -3,7 +3,7 @@ import { StripeError as CustomStripeError } from '../types/index.js'
 import { logger } from './logger.js'
 
 export interface CreateCheckoutSessionParams {
-  userEmail: string
+  customerEmail?: string  // Optional email for Stripe checkout
   orderId: string
   priceId: string
   successUrl: string
@@ -34,9 +34,8 @@ export class StripeManager {
    */
   async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
     try {
-      const session = await this.stripe.checkout.sessions.create({
+      const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         mode: 'subscription',
-        customer_email: params.userEmail,
         line_items: [
           {
             price: params.priceId,
@@ -53,12 +52,19 @@ export class StripeManager {
             order_id: params.orderId
           }
         }
-      })
+      }
+
+      // Add customer_email only if provided
+      if (params.customerEmail) {
+        sessionConfig.customer_email = params.customerEmail
+      }
+
+      const session = await this.stripe.checkout.sessions.create(sessionConfig)
 
       logger.info('Stripe checkout session created', {
         sessionId: session.id,
         orderId: params.orderId,
-        userEmail: params.userEmail
+        hasEmail: !!params.customerEmail
       })
 
       return session

@@ -31,8 +31,7 @@ export class BillingHandlerRegistry {
   async execute(
     handlerName: string,
     inputs: Record<string, any>,
-    userId: string = 'system',
-    userEmail?: string
+    userId: string = 'system'
   ): Promise<PluginResponse> {
     const requestId = nanoid()
     const timestamp = Date.now()
@@ -57,7 +56,6 @@ export class BillingHandlerRegistry {
       const context: PluginContext = {
         requestId,
         userId,
-        userEmail,
         timestamp,
         inputs
       }

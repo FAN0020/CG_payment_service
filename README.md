@@ -287,97 +287,69 @@ Expected response:
 
 ## API Reference
 
-### Create Subscription
+Complete API documentation is available in **[openapi.yaml](./openapi.yaml)**.
 
-Creates a Stripe checkout session for new subscription.
+### Quick Reference
 
-**Request:**
-```http
-POST /api/payment/create-subscription
-Content-Type: application/json
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/payment/health` | GET | Health check |
+| `/api/payment/create-subscription` | POST | Create checkout session (requires JWT + idempotency_key) |
+| `/api/payment/verify-subscription` | POST | Check subscription status (requires JWT) |
+| `/webhooks/stripe` | POST | Stripe webhook handler (signature verified) |
 
+### JWT Payload Structure
+
+All API endpoints (except health and webhooks) require a JWT with this structure:
+
+```typescript
 {
-  "jwt": "eyJhbGciOiJIUzI1NiIs..."
+  // Required standard claims
+  "sub": "user-123456",           // User ID
+  "iss": "mainline",              // Issuer
+  "iat": 1699999000,              // Issued at
+  "exp": 1700000000,              // Expiration
+  
+  // Optional payment config (validated against whitelists)
+  "product_id": "monthly-plan",   // Whitelisted: monthly-plan, annual-plan, etc.
+  "currency": "SGD",              // Whitelisted: SGD, USD, EUR, MYR
+  "payment_method": "card",       // Whitelisted: card, alipay, wechat, paynow, grabpay
+  
+  // Optional metadata (tracking only)
+  "platform": "web",
+  "client_ref": "checkout_btn_v3",
+  "version": "v1"
 }
 ```
 
-**Response:**
-```json
-{
-  "status_code": 200,
-  "message": "Checkout session created successfully",
-  "data": {
-    "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_...",
-    "order_id": "order_abc123xyz",
-    "session_id": "cs_test_..."
-  }
-}
+### Request Examples
+
+**Create Subscription:**
+```bash
+curl -X POST http://localhost:8790/api/payment/create-subscription \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jwt": "eyJhbGciOiJIUzI1NiIs...",
+    "idempotency_key": "550e8400-e29b-41d4-a716-446655440000",
+    "payment_gateway": "stripe"
+  }'
 ```
 
-### Verify Subscription
-
-Checks if user has active subscription.
-
-**Request:**
-```http
-POST /api/payment/verify-subscription
-Content-Type: application/json
-
-{
-  "jwt": "eyJhbGciOiJIUzI1NiIs..."
-}
+**Verify Subscription:**
+```bash
+curl -X POST http://localhost:8790/api/payment/verify-subscription \
+  -H "Content-Type: application/json" \
+  -d '{"jwt": "eyJhbGciOiJIUzI1NiIs..."}'
 ```
 
-**Response:**
-```json
-{
-  "status_code": 200,
-  "message": "Subscription status retrieved",
-  "data": {
-    "is_active": true,
-    "subscription": {
-      "order_id": "order_abc123xyz",
-      "plan": "monthly_9.9_SGD",
-      "status": "active",
-      "expires_at": 1735689600000,
-      "created_at": 1733011200000
-    }
-  }
-}
+**View OpenAPI Spec:**
+```bash
+# View in Swagger Editor
+npx swagger-editor openapi.yaml
+
+# Or use online viewer
+# https://editor.swagger.io/
 ```
-
-### Health Check
-
-**Request:**
-```http
-GET /api/payment/health
-```
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "service": "payment",
-  "timestamp": 1733011200000
-}
-```
-
-### Webhook Endpoint
-
-**Note**: This endpoint is called by Stripe, not by your application.
-
-```http
-POST /webhooks/stripe
-Headers: stripe-signature
-```
-
-Handles events:
-- `checkout.session.completed` - Activates subscription
-- `customer.subscription.created` - Updates subscription
-- `customer.subscription.updated` - Modifies subscription
-- `customer.subscription.deleted` - Cancels subscription
-- `invoice.payment_succeeded` - Extends expiration
-- `invoice.payment_failed` - Marks incomplete
 
 ---
 

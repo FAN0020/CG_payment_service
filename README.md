@@ -7,7 +7,8 @@ This is a self-contained payment service. Everything needed is inside `CG_paymen
 **What's inside:**
 - **13 TypeScript files** (~1,700 lines of code)
 - **1 comprehensive README** 
-- **2 handoff notes** (integration details)
+- **Integration notes** (handoff documentation)
+- **OpenAPI 3.0 specification** (complete API docs)
 - **Complete Stripe integration** with webhooks and idempotency
 
 ---
@@ -304,23 +305,19 @@ All API endpoints (except health and webhooks) require a JWT with this structure
 
 ```typescript
 {
-  // Required standard claims
-  "sub": "user-123456",           // User ID
-  "iss": "mainline",              // Issuer
-  "iat": 1699999000,              // Issued at
-  "exp": 1700000000,              // Expiration
+  // Required: Authentication fields
+  "sub": "user-123456",           // User ID (required)
+  "iss": "mainline",              // Issuer (required)
+  "iat": 1699999000,              // Issued at (required)
+  "exp": 1700000000,              // Expiration (required)
   
-  // Optional payment config (validated against whitelists)
-  "product_id": "monthly-plan",   // Whitelisted: monthly-plan, annual-plan, etc.
-  "currency": "SGD",              // Whitelisted: SGD, USD, EUR, MYR
-  "payment_method": "card",       // Whitelisted: card, alipay, wechat, paynow, grabpay
-  
-  // Optional metadata (tracking only)
-  "platform": "web",
-  "client_ref": "checkout_btn_v3",
-  "version": "v1"
+  // Optional: User information
+  "email": "user@example.com",    // Email for display/support
+  "roles": ["user", "premium"]    // Authorization roles/permissions
 }
 ```
+
+**Note:** Business logic parameters (product_id, currency, payment_method) are now passed in the API request body, not in JWT.
 
 ### Request Examples
 
@@ -331,7 +328,12 @@ curl -X POST http://localhost:8790/api/payment/create-subscription \
   -d '{
     "jwt": "eyJhbGciOiJIUzI1NiIs...",
     "idempotency_key": "550e8400-e29b-41d4-a716-446655440000",
-    "payment_gateway": "stripe"
+    "product_id": "monthly-plan",
+    "currency": "SGD",
+    "payment_method": "card",
+    "customer_email": "user@example.com",
+    "platform": "web",
+    "client_ref": "checkout_btn_v3"
   }'
 ```
 
@@ -609,14 +611,28 @@ sqlite3 payment.db "SELECT * FROM payment_events ORDER BY processed_at DESC LIMI
 ```javascript
 // test-jwt.js
 const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
+
+const payload = {
+  // Required: Authentication fields only
+  sub: 'user-test-123',               // User ID (required)
+  iss: 'mainline',                    // Issuer (required)
+  iat: Math.floor(Date.now() / 1000), // Issued at (required)
+  exp: Math.floor(Date.now() / 1000) + 86400, // Expires in 24 hours (required)
+  
+  // Optional: User information
+  email: 'test@example.com',          // Optional: for display/support only
+  roles: ['user', 'premium']          // Optional: authorization roles
+}
 
 const token = jwt.sign(
-  { email: 'test@example.com', userId: 'test-123' },
+  payload,
   'your_jwt_secret_from_env',
-  { expiresIn: '1d' }
+  { algorithm: 'HS256' }
 )
 
 console.log('JWT:', token)
+console.log('\nIdempotency Key:', crypto.randomUUID())
 ```
 
 2. **Create subscription:**
@@ -624,7 +640,16 @@ console.log('JWT:', token)
 ```bash
 curl -X POST http://localhost:8790/api/payment/create-subscription \
   -H "Content-Type: application/json" \
-  -d '{"jwt":"YOUR_JWT_TOKEN"}'
+  -d '{
+    "jwt": "YOUR_JWT_TOKEN",
+    "idempotency_key": "550e8400-e29b-41d4-a716-446655440000",
+    "product_id": "monthly-plan",
+    "currency": "SGD",
+    "payment_method": "card",
+    "customer_email": "test@example.com",
+    "platform": "web",
+    "client_ref": "test_checkout"
+  }'
 ```
 
 3. **Complete payment:**

@@ -14,12 +14,23 @@ developer needs to ensure the following exists in the MAIN REPO:
 └─────────────────────────────────────────────────────────────────┘
 
 This plugin exposes two operations to the mainline orchestrator:
-  • payment.subscribe  → Creates Stripe checkout session
+  • payment.subscribe  → Creates Stripe checkout session (with idempotency)
   • payment.verify     → Checks subscription status
 
 The plugin makes HTTP calls to this payment service:
   • POST http://localhost:8790/api/payment/create-subscription
+    Body: {
+      jwt,                    // Authentication token
+      idempotency_key,        // UUID v4 for duplicate prevention
+      product_id,             // Product identifier (e.g., "monthly-plan")
+      currency,               // Currency code (e.g., "SGD")
+      payment_method,         // Payment method (e.g., "card") - optional
+      customer_email,         // Customer email - optional
+      platform,               // Platform identifier - optional
+      client_ref              // Client reference - optional
+    }
   • POST http://localhost:8790/api/payment/verify-subscription
+    Body: { jwt }           // Authentication token only
 
 ┌─────────────────────────────────────────────────────────────────┐
 │ File: config.json (in main repo)                                │
@@ -44,12 +55,29 @@ Must import and export the payment-gateway plugin.
 
 ═══════════════════════════════════════════════════════════════════
 
+JWT Token Structure (Authentication Only):
+  • Must use HS256 algorithm
+  • Required claims: sub (user ID), iss (must be "mainline"), iat, exp
+  • Optional claims: email, roles (for authorization)
+  • JWT contains NO business logic parameters
+
+Business Parameters (In Request Body):
+  • product_id, currency, payment_method → Passed in API request body
+  • All business params validated against whitelists in payment service
+  • See openapi.yaml for complete list of allowed values
+
+Idempotency:
+  • All create-subscription calls require a unique idempotency_key (UUID v4)
+  • Plugin auto-generates if not provided by client
+  • Prevents duplicate charges on network retries
+
 Summary:
   1. This folder (CG_payment_service) is your complete payment service
   2. Hand it to lead developer as-is
   3. Lead developer ensures mainline has the payment-gateway plugin
   4. Both services must share the same JWT_SECRET
   5. Start this service BEFORE starting mainline
+  6. See openapi.yaml for complete API documentation
 
 ═══════════════════════════════════════════════════════════════════
 

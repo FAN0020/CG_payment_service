@@ -55,18 +55,49 @@ paths:
               properties:
                 jwt:
                   type: string
-                  description: JWT token with user identity and payment config
+                  description: JWT token for authentication (contains user ID only)
                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
                 idempotency_key:
                   type: string
                   format: uuid
                   description: Client-generated UUID v4 for duplicate prevention
                   example: 550e8400-e29b-41d4-a716-446655440000
+                product_id:
+                  type: string
+                  enum: [monthly-plan, annual-plan, basic-plan, premium-plan]
+                  default: monthly-plan
+                  description: Product to subscribe to
+                  example: monthly-plan
+                currency:
+                  type: string
+                  enum: [SGD, USD, EUR, MYR]
+                  default: SGD
+                  description: Currency for payment
+                  example: SGD
+                payment_method:
+                  type: string
+                  enum: [card, alipay, wechat, paynow, grabpay]
+                  description: Preferred payment method (optional)
+                  example: card
                 payment_gateway:
                   type: string
                   enum: [stripe]
                   default: stripe
                   description: Payment gateway to use
+                customer_email:
+                  type: string
+                  format: email
+                  description: Customer email for Stripe checkout (optional)
+                  example: user@example.com
+                platform:
+                  type: string
+                  enum: [web, ios, android]
+                  description: Platform identifier (metadata)
+                  example: web
+                client_ref:
+                  type: string
+                  description: Client reference for tracking (metadata)
+                  example: checkout_btn_v3
       responses:
         '200':
           description: Checkout session created successfully
@@ -223,7 +254,7 @@ components:
 
     JWTPayload:
       type: object
-      description: JWT token payload structure
+      description: JWT token payload structure (authentication/authorization only)
       required:
         - sub
         - iss
@@ -246,33 +277,17 @@ components:
           type: integer
           description: Expiration timestamp
           example: 1700000000
-        product_id:
+        email:
           type: string
-          description: Product identifier (validated against whitelist)
-          enum: [monthly-plan, annual-plan, basic-plan, premium-plan]
-          example: monthly-plan
-        currency:
-          type: string
-          description: Currency code (validated against whitelist)
-          enum: [SGD, USD, EUR, MYR]
-          example: SGD
-        payment_method:
-          type: string
-          description: Payment method (validated against whitelist)
-          enum: [card, alipay, wechat, paynow, grabpay]
-          example: card
-        platform:
-          type: string
-          description: Platform identifier (metadata only)
-          example: web
-        client_ref:
-          type: string
-          description: Client reference for tracking (metadata only)
-          example: checkout_btn_v3
-        version:
-          type: string
-          description: API version (metadata only)
-          example: v1
+          format: email
+          description: User email (optional, for display/support only)
+          example: user@example.com
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles/permissions (optional)
+          example: ["user", "premium"]
 
   securitySchemes:
     JWT:

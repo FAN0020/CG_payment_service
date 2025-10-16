@@ -48,22 +48,33 @@ export async function registerPaymentRoutes(
         throw new ValidationError(`Invalid request: ${validationResult.error.message}`)
       }
 
-      const { jwt: token, idempotency_key, payment_gateway } = validationResult.data
+      const { 
+        jwt: token, 
+        idempotency_key, 
+        payment_gateway,
+        product_id,
+        currency,
+        payment_method,
+        customer_email,
+        platform,
+        client_ref
+      } = validationResult.data
 
-      // Verify and decode JWT
+      // Verify and decode JWT (authentication only)
       const payload = jwtManager.verify(token)
       const userId = payload.sub
-      const productId = payload.product_id || 'monthly-plan'  // Default to monthly plan
-      const currency = payload.currency || config.planCurrency
-      const paymentMethod = payload.payment_method
-      const platform = payload.platform
-      const clientRef = payload.client_ref
+      
+      // Business parameters come from request body (with defaults)
+      const productId = product_id || 'monthly-plan'
+      const finalCurrency = currency || config.planCurrency
+      const paymentMethod = payment_method
+      const customerEmail = customer_email || payload.email  // Fallback to JWT email if provided
 
       logger.info('Create subscription request', {
         requestId,
         userId,
         productId,
-        currency,
+        currency: finalCurrency,
         idempotencyKey: idempotency_key
       })
 
@@ -92,17 +103,15 @@ export async function registerPaymentRoutes(
       }
 
       // ========== WHITELIST VALIDATION ==========
-      // Validate product_id
+      // Note: Basic validation already done by Zod schema, but we double-check for safety
       if (!PAYMENT_WHITELISTS.PRODUCTS.includes(productId as any)) {
         throw new ValidationError(`Invalid product_id: ${productId}. Allowed: ${PAYMENT_WHITELISTS.PRODUCTS.join(', ')}`)
       }
 
-      // Validate currency
-      if (!PAYMENT_WHITELISTS.CURRENCIES.includes(currency as any)) {
-        throw new ValidationError(`Invalid currency: ${currency}. Allowed: ${PAYMENT_WHITELISTS.CURRENCIES.join(', ')}`)
+      if (!PAYMENT_WHITELISTS.CURRENCIES.includes(finalCurrency as any)) {
+        throw new ValidationError(`Invalid currency: ${finalCurrency}. Allowed: ${PAYMENT_WHITELISTS.CURRENCIES.join(', ')}`)
       }
 
-      // Validate payment_method (if provided)
       if (paymentMethod && !PAYMENT_WHITELISTS.PAYMENT_METHODS.includes(paymentMethod as any)) {
         throw new ValidationError(`Invalid payment_method: ${paymentMethod}. Allowed: ${PAYMENT_WHITELISTS.PAYMENT_METHODS.join(', ')}`)
       }
@@ -118,13 +127,13 @@ export async function registerPaymentRoutes(
         'create-order',
         {
           userId,
-          stripeCustomerEmail: undefined,  // No email in JWT anymore
-          plan: `${productId}_${productConfig.amount}_${currency}`,
+          stripeCustomerEmail: customerEmail,  // From request body or JWT
+          plan: `${productId}_${productConfig.amount}_${finalCurrency}`,
           amount: productConfig.amount,
-          currency,
+          currency: finalCurrency,
           paymentMethod,
           platform,
-          clientRef
+          clientRef: client_ref
         },
         userId
       )
@@ -140,7 +149,7 @@ export async function registerPaymentRoutes(
 
       // Step 2: Create Stripe checkout session
       const session = await stripeManager.createCheckoutSession({
-        customerEmail: undefined,  // No email from JWT
+        customerEmail,  // From request body or JWT
         orderId,
         priceId: productConfig.priceId,
         successUrl: config.successUrl,

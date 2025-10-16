@@ -4,6 +4,7 @@ import { ValidationError } from '../errors/validation.error.js'
 import { SC } from '../constants/status-codes.js'
 import { getConfig } from '../config.js'
 import type { PluginContext, PluginResponse } from '../types/index.js'
+import crypto from 'node:crypto'
 
 const JSON_HEADERS = { 'content-type': 'application/json' }
 
@@ -14,14 +15,33 @@ const JSON_HEADERS = { 'content-type': 'application/json' }
 registerPlugin('payment.subscribe', async ({ intent }: PluginContext): Promise<PluginResponse> => {
   try {
     const jwt = ensureJWT(intent?.inputs)
+    const idempotencyKey = generateIdempotencyKey(intent?.inputs)
     const config = getConfig()
     
     console.log('[payment.subscribe] Creating subscription checkout session')
     
+    // Extract business parameters from inputs (with defaults)
+    const productId = intent?.inputs?.product_id || 'monthly-plan'
+    const currency = intent?.inputs?.currency || 'SGD'
+    const paymentMethod = intent?.inputs?.payment_method
+    const customerEmail = intent?.inputs?.customer_email
+    const platform = intent?.inputs?.platform
+    const clientRef = intent?.inputs?.client_ref
+    
     const response = await callPaymentService(
       config.paymentService.url,
       '/api/payment/create-subscription',
-      { jwt }
+      { 
+        jwt,
+        idempotency_key: idempotencyKey,
+        product_id: productId,
+        currency,
+        payment_method: paymentMethod,
+        payment_gateway: 'stripe',
+        customer_email: customerEmail,
+        platform,
+        client_ref: clientRef
+      }
     )
 
     return {
@@ -88,6 +108,20 @@ function ensureJWT(inputs: any): string {
     throw new ValidationError('JWT token is required')
   }
   return jwt
+}
+
+/**
+ * Generate or use provided idempotency key
+ * Uses client-provided key if available, otherwise generates UUID v4
+ */
+function generateIdempotencyKey(inputs: any): string {
+  // Use client-provided idempotency_key if available
+  if (typeof inputs?.idempotency_key === 'string' && inputs.idempotency_key.trim()) {
+    return inputs.idempotency_key.trim()
+  }
+  
+  // Generate UUID v4 for idempotency
+  return crypto.randomUUID()
 }
 
 /**

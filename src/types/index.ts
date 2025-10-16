@@ -63,33 +63,33 @@ export interface ClientIdempotencyRecord {
 }
 
 // ============================================================================
-// JWT Payload
+// JWT Payload - Authentication Only
+// ============================================================================
+
+export const JWTPayloadSchema = z.object({
+  // Standard JWT claims (authentication/authorization only)
+  sub: z.string().min(1, 'User ID (sub) is required'),  // User ID
+  iss: z.string().default('mainline'),                  // Issuer
+  iat: z.number().optional(),                           // Issued at
+  exp: z.number().optional(),                           // Expiration
+  
+  // Optional: email for display/customer support (not used for Stripe)
+  email: z.string().email().optional(),
+  
+  // Optional: authorization roles/permissions
+  roles: z.array(z.string()).optional(),
+})
+
+export type JWTPayload = z.infer<typeof JWTPayloadSchema>
+
+// ============================================================================
+// Business Logic Whitelists
 // ============================================================================
 
 // Allowed values for validation
 const ALLOWED_PRODUCTS = ['monthly-plan', 'annual-plan', 'basic-plan', 'premium-plan'] as const
 const ALLOWED_CURRENCIES = ['SGD', 'USD', 'EUR', 'MYR'] as const
 const ALLOWED_PAYMENT_METHODS = ['card', 'alipay', 'wechat', 'paynow', 'grabpay'] as const
-
-export const JWTPayloadSchema = z.object({
-  // Standard JWT claims
-  sub: z.string().min(1, 'User ID (sub) is required'),  // User ID only
-  iss: z.string().default('mainline'),                  // Issuer
-  iat: z.number().optional(),                           // Issued at
-  exp: z.number().optional(),                           // Expiration
-  
-  // Payment configuration (validated against whitelist)
-  product_id: z.enum(ALLOWED_PRODUCTS).optional(),
-  currency: z.enum(ALLOWED_CURRENCIES).optional(),
-  payment_method: z.enum(ALLOWED_PAYMENT_METHODS).optional(),
-  
-  // Metadata for tracking/debugging only
-  platform: z.enum(['web', 'ios', 'android']).optional(),
-  client_ref: z.string().optional(),                    // Frontend tracking reference
-  version: z.string().default('v1')                     // Schema version
-})
-
-export type JWTPayload = z.infer<typeof JWTPayloadSchema>
 
 // Export allowed values for use in validation
 export const PAYMENT_WHITELISTS = {
@@ -103,9 +103,26 @@ export const PAYMENT_WHITELISTS = {
 // ============================================================================
 
 export const CreateSubscriptionRequestSchema = z.object({
+  // Authentication
   jwt: z.string().min(1, 'JWT token is required'),
+  
+  // Idempotency
   idempotency_key: z.string().min(1, 'Idempotency key is required'),  // Client-generated UUID
-  payment_gateway: z.enum(['stripe', 'paypal', 'alipay']).default('stripe').optional()  // For future extensibility
+  
+  // Business parameters (validated against whitelists)
+  product_id: z.enum(ALLOWED_PRODUCTS).default('monthly-plan').optional(),
+  currency: z.enum(ALLOWED_CURRENCIES).default('SGD').optional(),
+  payment_method: z.enum(ALLOWED_PAYMENT_METHODS).optional(),
+  
+  // Gateway selection
+  payment_gateway: z.enum(['stripe', 'paypal', 'alipay']).default('stripe').optional(),
+  
+  // Optional: customer email for Stripe checkout
+  customer_email: z.string().email().optional(),
+  
+  // Metadata for tracking/debugging
+  platform: z.enum(['web', 'ios', 'android']).optional(),
+  client_ref: z.string().optional(),
 })
 
 export const VerifySubscriptionRequestSchema = z.object({

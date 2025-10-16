@@ -1,6 +1,9 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import fastifyStatic from '@fastify/static'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 import { PaymentDatabase } from './lib/database.js'
 import { JWTManager } from './lib/jwt.js'
 import { StripeManager } from './lib/stripe.js'
@@ -8,6 +11,9 @@ import { logger } from './lib/logger.js'
 import { initializeHandlers } from './handlers/index.js'
 import { registerPaymentRoutes } from './routes/payment.js'
 import { registerWebhookRoutes } from './routes/webhook.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 /**
  * Load and validate environment variables
@@ -73,6 +79,19 @@ async function main() {
     await fastify.register(cors, {
       origin: true, // Allow all origins in development; restrict in production
       credentials: true
+    })
+
+    // Register static file serving for frontend
+    const frontendPath = join(__dirname, '..', 'frontend')
+    await fastify.register(fastifyStatic, {
+      root: frontendPath,
+      prefix: '/payment/',
+      decorateReply: false
+    })
+
+    // Serve index.html at /payment route
+    fastify.get('/payment', async (request, reply) => {
+      return reply.sendFile('index.html')
     })
 
     // Add raw body support for webhook signature verification

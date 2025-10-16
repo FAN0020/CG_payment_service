@@ -16,8 +16,9 @@ interface PaymentConfig {
 }
 
 // Product configuration mapping
-const PRODUCT_CONFIG: Record<string, { priceId: string; amount: number; currency: string }> = {
-  'monthly-plan': { priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '', amount: 9.90, currency: 'SGD' },
+const PRODUCT_CONFIG: Record<string, { priceId: string; amount: number; currency: string; durationDays?: number }> = {
+  'trial-plan': { priceId: process.env.STRIPE_TRIAL_PRICE_ID || '', amount: 1.00, currency: 'USD', durationDays: 2 },
+  'monthly-plan': { priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '', amount: 12.90, currency: 'USD' },
   'annual-plan': { priceId: process.env.STRIPE_ANNUAL_PRICE_ID || '', amount: 99.00, currency: 'SGD' },
   'basic-plan': { priceId: process.env.STRIPE_BASIC_PRICE_ID || '', amount: 4.90, currency: 'SGD' },
   'premium-plan': { priceId: process.env.STRIPE_PREMIUM_PRICE_ID || '', amount: 19.90, currency: 'SGD' }

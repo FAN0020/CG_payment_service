@@ -87,7 +87,7 @@ export type JWTPayload = z.infer<typeof JWTPayloadSchema>
 // ============================================================================
 
 // Allowed values for validation
-const ALLOWED_PRODUCTS = ['monthly-plan', 'annual-plan', 'basic-plan', 'premium-plan'] as const
+const ALLOWED_PRODUCTS = ['trial-plan', 'monthly-plan', 'annual-plan', 'basic-plan', 'premium-plan'] as const
 const ALLOWED_CURRENCIES = ['SGD', 'USD', 'EUR', 'MYR'] as const
 const ALLOWED_PAYMENT_METHODS = ['card', 'alipay', 'wechat', 'paynow', 'grabpay'] as const
 

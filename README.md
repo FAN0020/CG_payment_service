@@ -50,6 +50,23 @@ curl http://localhost:8790/api/payment/health
 
 Service runs on **http://localhost:8790**
 
+### Frontend Payment Page
+
+A beautiful payment page is included at `/payment` endpoint:
+
+```bash
+# Visit the payment page
+open http://localhost:8790/payment
+```
+
+**Features:**
+- Two pricing plans: Trial ($1 for 2 days) and Monthly ($12.90/month)
+- Responsive design following ClassGuru UI guidelines
+- Secure Stripe checkout integration
+- JWT authentication
+
+See `frontend/README.md` for detailed documentation.
+
 ---
 
 ## Architecture
@@ -115,6 +132,10 @@ CG_payment_service/
 │   │   └── webhook.ts            # Stripe webhook handler
 │   └── types/
 │       └── index.ts              # TypeScript type definitions
+├── frontend/                     # Payment frontend page
+│   ├── index.html                # Payment page UI
+│   ├── app.js                    # Payment logic
+│   └── README.md                 # Frontend documentation
 ├── package.json
 ├── tsconfig.json
 ├── env.example                   # Environment template

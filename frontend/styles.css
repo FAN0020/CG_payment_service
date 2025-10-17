@@ -1,0 +1,720 @@
+/**
+ * ClassGuru Payment Demo - Aligned with ClassGuru Design System
+ * Component-level specifications from classguru_ui_src/src_ui/component
+ */
+
+/* ============================================================================
+   CSS Variables (Design Tokens) - Aligned with ClassGuru Component Library
+   ============================================================================ */
+:root {
+  /* Primary Colors - Using ClassGuru official palette */
+  --cg-primary: #3358ff;
+  --cg-primary-dark: #1e3ff5;
+  --cg-accent: #22d3ee;
+  
+  /* Semantic Colors */
+  --cg-secondary: #94a3b8;
+  --cg-success: #22c55e;
+  --cg-warning: #f59e0b;
+  --cg-danger: #ef4444;
+  
+  /* Text */
+  --cg-text: #0f172a;
+  --cg-muted: rgba(15, 23, 42, 0.6);
+  
+  /* Borders & Surfaces */
+  --cg-border: rgba(148, 163, 184, 0.28);
+  --cg-surface: rgba(255, 255, 255, 0.72);
+  --cg-surface-strong: rgba(255, 255, 255, 0.92);
+  --cg-glass-border: rgba(255, 255, 255, 0.55);
+  
+  /* Radius (≥ 24px for cards, 18px for buttons per design guide) */
+  --cg-radius-lg: 28px;
+  --cg-radius-md: 18px;
+  --cg-radius-sm: 12px;
+  
+  /* Shadows */
+  --cg-shadow-soft: 0 22px 48px rgba(15, 23, 42, 0.16);
+  --cg-shadow-lift: 0 14px 28px rgba(51, 88, 255, 0.25);
+  
+  /* Gradient */
+  --cg-gradient-soft: linear-gradient(135deg, rgba(51, 88, 255, 0.22), rgba(34, 211, 238, 0.18));
+}
+
+/* ============================================================================
+   Reset & Base Styles
+   ============================================================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--cg-text);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ============================================================================
+   Background Layer - Following PageTemplate Specifications
+   ============================================================================ */
+.cg-background {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 10% 20%, rgba(51, 88, 255, 0.18), transparent 55%),
+    radial-gradient(circle at 85% 15%, rgba(34, 211, 238, 0.15), transparent 60%),
+    linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #ecfeff 100%);
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Floating halos - Following template.css specifications */
+.cg-halo {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(120px);
+  opacity: 0.65;
+  transform: rotate(12deg);
+}
+
+.cg-halo--one {
+  width: 520px;
+  height: 520px;
+  top: -160px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(51, 88, 255, 0.55), transparent 65%);
+}
+
+.cg-halo--two {
+  width: 420px;
+  height: 420px;
+  bottom: -110px;
+  right: -40px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 60%);
+}
+
+.cg-halo--three {
+  width: 360px;
+  height: 360px;
+  top: 26%;
+  right: 38%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.45), transparent 65%);
+}
+
+/* ============================================================================
+   Layout - Following PageTemplate Guidelines
+   ============================================================================ */
+.cg-template {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header - Glassmorphism with fixed positioning */
+.cg-header {
+  position: relative;
+  background: var(--cg-surface);
+  backdrop-filter: blur(22px);
+  border-radius: var(--cg-radius-lg);
+  border: 1px solid var(--cg-glass-border);
+  box-shadow: 0 20px 55px rgba(51, 88, 255, 0.18);
+  padding: 18px 32px;
+  margin: 24px 50px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 84px;
+  overflow: hidden;
+}
+
+.cg-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.cg-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cg-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.cg-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  background: linear-gradient(140deg, var(--cg-primary), rgba(51, 88, 255, 0.5));
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  box-shadow: 0 16px 32px rgba(51, 88, 255, 0.35);
+}
+
+.cg-brand-text h1 {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cg-brand-text p {
+  margin: 6px 0 0;
+  font-size: 0.86rem;
+  color: var(--cg-muted);
+}
+
+/* Main Content Area */
+.cg-content {
+  flex: 1;
+  padding: 40px 65px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Footer - Glassmorphism */
+.cg-footer {
+  position: relative;
+  background: var(--cg-surface);
+  backdrop-filter: blur(22px);
+  border-radius: var(--cg-radius-lg);
+  border: 1px solid var(--cg-glass-border);
+  box-shadow: 0 20px 55px rgba(51, 88, 255, 0.18);
+  padding: 18px 32px;
+  margin: 0 50px 24px;
+  font-size: 0.9rem;
+  color: var(--cg-muted);
+  text-align: center;
+  overflow: hidden;
+}
+
+.cg-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.cg-footer > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================================
+   Card Component - Following Component Library Specifications
+   ============================================================================ */
+.cg-card {
+  position: relative;
+  background: var(--cg-surface-strong);
+  border-radius: var(--cg-radius-lg);
+  border: 1px solid var(--cg-border);
+  box-shadow: var(--cg-shadow-soft);
+  padding: 32px;
+  color: var(--cg-text);
+  overflow: hidden;
+  transition: transform 0.32s ease, box-shadow 0.32s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.cg-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% -20%, rgba(51, 88, 255, 0.22), transparent 55%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.cg-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Floating card effect - max 8px lift as per design guide */
+.cg-card.floating {
+  will-change: transform;
+}
+
+.cg-card.floating:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 28px 48px rgba(15, 23, 42, 0.2);
+}
+
+/* ============================================================================
+   Button Component - Following Component Library Specifications
+   ============================================================================ */
+.cg-button {
+  border: none;
+  border-radius: var(--cg-radius-md);
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.22s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  min-height: 48px;
+}
+
+.cg-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cg-button.primary {
+  background: linear-gradient(135deg, var(--cg-primary), var(--cg-accent));
+  color: #fff;
+  box-shadow: var(--cg-shadow-lift);
+}
+
+/* Max 3px lift for buttons as per design guide */
+.cg-button.primary:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 34px rgba(51, 88, 255, 0.32);
+}
+
+.cg-button.secondary {
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--cg-primary);
+  border: 1px solid rgba(51, 88, 255, 0.45);
+}
+
+.cg-button.secondary:hover:not(:disabled) {
+  background: rgba(51, 88, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.cg-button.lg {
+  padding: 16px 30px;
+  font-size: 1.05rem;
+}
+
+.cg-button.sm {
+  padding: 10px 18px;
+  font-size: 0.9rem;
+}
+
+/* ============================================================================
+   Page-Specific Components
+   ============================================================================ */
+
+/* Page Hero */
+.payment-hero {
+  text-align: center;
+  margin-bottom: 32px;
+  max-width: 720px;
+}
+
+.payment-hero h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--cg-primary), var(--cg-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.payment-hero p {
+  font-size: 1.1rem;
+  color: var(--cg-muted);
+}
+
+/* Pricing Grid */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px;
+  width: 100%;
+  max-width: 900px;
+}
+
+/* Pricing Card */
+.pricing-card {
+  position: relative;
+  background: var(--cg-surface-strong);
+  border-radius: var(--cg-radius-lg);
+  border: 1px solid var(--cg-border);
+  box-shadow: var(--cg-shadow-soft);
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow: hidden;
+  transition: transform 0.32s ease, box-shadow 0.32s ease;
+}
+
+.pricing-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% -20%, rgba(51, 88, 255, 0.18), transparent 60%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.pricing-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.pricing-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 28px 48px rgba(51, 88, 255, 0.22);
+}
+
+.pricing-card.featured {
+  border-color: rgba(51, 88, 255, 0.5);
+  box-shadow: 0 24px 60px rgba(51, 88, 255, 0.3);
+}
+
+.pricing-card.featured::before {
+  background: radial-gradient(circle at 50% -20%, rgba(51, 88, 255, 0.28), transparent 60%);
+}
+
+/* Badge */
+.cg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--cg-gradient-soft);
+  color: var(--cg-primary);
+  align-self: flex-start;
+}
+
+/* Plan Header */
+.plan-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.price-amount {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--cg-primary);
+}
+
+.price-currency {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--cg-muted);
+}
+
+.price-period {
+  font-size: 1rem;
+  color: var(--cg-muted);
+}
+
+.plan-description {
+  font-size: 1rem;
+  color: var(--cg-muted);
+  margin: 0;
+}
+
+/* Features List */
+.features-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0 24px;
+  flex: 1;
+}
+
+.features-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.98rem;
+}
+
+.features-list li::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(51, 88, 255, 0.15);
+  color: var(--cg-primary);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Loading State */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+/* Success/Cancel Pages */
+.result-container {
+  max-width: 600px;
+  width: 100%;
+}
+
+.result-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+}
+
+.result-icon.success {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--cg-success);
+}
+
+.result-icon.cancel {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--cg-danger);
+}
+
+.result-title {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.result-message {
+  text-align: center;
+  color: var(--cg-muted);
+  margin-bottom: 32px;
+  font-size: 1.1rem;
+}
+
+.order-details {
+  background: rgba(51, 88, 255, 0.06);
+  border-radius: var(--cg-radius-md);
+  padding: 24px;
+  margin: 24px 0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cg-border);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--cg-text);
+}
+
+.detail-value {
+  color: var(--cg-muted);
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+/* Action Buttons Group */
+.action-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 32px;
+}
+
+/* ============================================================================
+   Responsive Design - Following PageTemplate Breakpoints
+   ============================================================================ */
+
+@media (max-width: 1040px) {
+  .cg-header,
+  .cg-footer {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  .cg-content {
+    padding: 32px 20px;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cg-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .cg-brand {
+    gap: 12px;
+  }
+
+  .payment-hero h1 {
+    font-size: 2rem;
+  }
+
+  .payment-hero p {
+    font-size: 1rem;
+  }
+
+  .pricing-card {
+    padding: 32px 24px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .cg-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .cg-header,
+  .cg-footer {
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 16px 20px;
+  }
+
+  .cg-content {
+    padding: 24px 12px;
+  }
+
+  .payment-hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .price-amount {
+    font-size: 2.5rem;
+  }
+
+  .pricing-card {
+    padding: 28px 20px;
+  }
+
+  .cg-card {
+    padding: 24px;
+  }
+}
+
+/* ============================================================================
+   Accessibility - Following A11y Guidelines
+   ============================================================================ */
+
+/* Focus visible states */
+.cg-button:focus-visible,
+button:focus-visible {
+  outline: 3px solid rgba(51, 88, 255, 0.28);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .cg-card,
+  .pricing-card,
+  .cg-button {
+    transform: none !important;
+  }
+}
+
+/* Minimum touch target size (44x44px) */
+.cg-button,
+button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+.text-center {
+  text-align: center;
+}
+
+.mb-0 {
+  margin-bottom: 0 !important;
+}
+
+.mt-32 {
+  margin-top: 32px;
+}
+
+.hidden {
+  display: none;
+}

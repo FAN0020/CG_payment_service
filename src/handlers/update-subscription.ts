@@ -27,10 +27,6 @@ export function createBillingSubscriptionUpdateHandler(db: PaymentDatabase) {
         order = db.getOrderByStripeSessionId(data.stripeSessionId)
       } else if (data.stripeSubscriptionId) {
         order = db.getOrderByStripeSubscriptionId(data.stripeSubscriptionId)
-      } else if (data.userEmail) {
-        // Get most recent order for this email
-        const orders = db.getOrdersByEmail(data.userEmail)
-        order = orders[0] || null
       }
 
       if (!order) {
@@ -64,7 +60,7 @@ export function createBillingSubscriptionUpdateHandler(db: PaymentDatabase) {
         message: 'Subscription updated successfully',
         data: {
           order_id: updatedOrder.order_id,
-          user_email: updatedOrder.user_email,
+          user_id: updatedOrder.user_id,
           status: updatedOrder.status,
           stripe_subscription_id: updatedOrder.stripe_subscription_id,
           expires_at: updatedOrder.expires_at,

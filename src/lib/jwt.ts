@@ -42,8 +42,11 @@ export class JWTManager {
   /**
    * Sign a new JWT token (for testing or internal use)
    */
-  sign(payload: JWTPayload, expiresIn: string = '7d'): string {
-    return jwt.sign(payload, this.secret, { expiresIn })
+  sign(payload: JWTPayload, expiresIn?: string | number): string {
+    if (expiresIn) {
+      return jwt.sign(payload as any, this.secret, { expiresIn } as jwt.SignOptions)
+    }
+    return jwt.sign(payload as any, this.secret)
   }
 
   /**

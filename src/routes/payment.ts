@@ -1,12 +1,12 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { CreateSubscriptionRequestSchema, VerifySubscriptionRequestSchema, ValidationError, PAYMENT_WHITELISTS } from '../types/index.js'
 import { JWTManager } from '../lib/jwt.js'
-import { StripeManager } from '../lib/stripe.js'
+import { IStripeManager } from '../lib/stripe.js'
 import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
-import { getProductConfig, isValidProductId } from '../config/products.js'
+import { getProductConfig, validateProductId } from '../config/products.js'
 
 interface PaymentConfig {
   priceId: string
@@ -22,7 +22,7 @@ interface PaymentConfig {
 export async function registerPaymentRoutes(
   fastify: FastifyInstance,
   jwtManager: JWTManager,
-  stripeManager: StripeManager,
+  stripeManager: IStripeManager,
   db: PaymentDatabase,
   config: PaymentConfig
 ): Promise<void> {
@@ -99,7 +99,7 @@ export async function registerPaymentRoutes(
 
       // ========== PRODUCT VALIDATION ==========
       // Validate product exists and is configured
-      if (!isValidProductId(productId)) {
+      if (!validateProductId(productId)) {
         throw new ValidationError(
           `Invalid or unconfigured product: ${productId}. Please check your product configuration.`
         )

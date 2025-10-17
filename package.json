@@ -5,13 +5,19 @@
   "type": "module",
   "main": "src/server.ts",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "setup": "bash scripts/setup.sh",
+    "dev": "bash start-server.sh",
+    "start": "bash start-server.sh",
+    "start:direct": "npx tsx src/server.ts",
+    "validate": "node scripts/validate-env.js",
+    "check-port": "bash scripts/check-port.sh",
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "demo": "bash scripts/run-demo.sh",
     "generate-jwt": "node scripts/generate-test-jwt.js",
-    "test:stripe": "node scripts/test-with-stripe.js"
+    "test:stripe": "node scripts/test-with-stripe.js",
+    "mock-stripe": "node scripts/mock-stripe-interactive.js",
+    "kill-server": "lsof -ti :8790 | xargs kill -9 2>/dev/null || echo 'No server running on port 8790'"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

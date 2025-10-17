@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Successful - ClassGuru</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Background with gradient halos -->
+  <div class="cg-background" aria-hidden="true">
+    <div class="cg-halo cg-halo--one"></div>
+    <div class="cg-halo cg-halo--two"></div>
+    <div class="cg-halo cg-halo--three"></div>
+  </div>
+
+  <div class="cg-template">
+    <!-- Header -->
+    <header class="cg-header">
+      <div class="cg-brand">
+        <div class="cg-logo">CG</div>
+        <div class="cg-brand-text">
+          <h1>ClassGuru</h1>
+          <p>AI-Powered Learning</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="cg-content">
+      <div class="result-container">
+        <!-- Success Card -->
+        <div class="cg-card text-center">
+          <!-- Success Icon -->
+          <div class="result-icon success">
+            <span>✓</span>
+          </div>
+
+          <!-- Success Message -->
+          <h1 class="result-title">Payment Successful!</h1>
+          <p class="result-message">
+            Thank you for subscribing to ClassGuru. Your payment has been processed successfully.
+          </p>
+
+          <!-- Order Details -->
+          <div class="order-details">
+            <div class="detail-row">
+              <span class="detail-label">Order ID:</span>
+              <span class="detail-value" id="order-id">Loading...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Session ID:</span>
+              <span class="detail-value" id="session-id">Loading...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Plan:</span>
+              <span class="detail-value" id="plan-name">Loading...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Status:</span>
+              <span class="detail-value" style="color: var(--cg-success); font-weight: 600;">Completed</span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <a href="/payment" class="cg-button secondary">
+              Back to Plans
+            </a>
+            <a href="https://classguru.ai/dashboard" class="cg-button primary">
+              Go to Dashboard
+            </a>
+          </div>
+
+          <!-- Additional Info -->
+          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;">
+            <p style="margin-bottom: 8px;">A confirmation email has been sent to your registered email address.</p>
+            <p class="mb-0">If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="cg-footer">
+      <span>© 2025 ClassGuru. All rights reserved.</span>
+    </footer>
+  </div>
+
+  <script src="result.js"></script>
+</body>
+</html>

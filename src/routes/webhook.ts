@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import Stripe from 'stripe'
-import { StripeManager } from '../lib/stripe.js'
+import { IStripeManager } from '../lib/stripe.js'
 import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
@@ -11,7 +11,7 @@ import { logger } from '../lib/logger.js'
  */
 export async function registerWebhookRoutes(
   fastify: FastifyInstance,
-  stripeManager: StripeManager,
+  stripeManager: IStripeManager,
   db: PaymentDatabase,
   webhookSecret: string
 ): Promise<void> {

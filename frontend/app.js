@@ -47,31 +47,126 @@ function hideError(planType) {
   }
 }
 
+// Show JWT input modal
+function showJWTModal() {
+  return new Promise((resolve) => {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    `;
+    
+    modal.innerHTML = `
+      <h2 style="margin: 0 0 16px; font-size: 24px; color: #333;">Enter JWT Token</h2>
+      <p style="margin: 0 0 20px; color: #666; line-height: 1.5;">
+        Please enter your JWT token to continue with the payment.<br>
+        <strong>To generate a test JWT, run:</strong> <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">npm run generate-jwt</code>
+      </p>
+      <textarea 
+        id="jwt-input" 
+        placeholder="Paste your JWT token here..."
+        style="
+          width: 100%;
+          min-height: 100px;
+          padding: 12px;
+          border: 2px solid #ddd;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 12px;
+          resize: vertical;
+          box-sizing: border-box;
+        "
+      ></textarea>
+      <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="jwt-cancel" style="
+          padding: 10px 20px;
+          border: 2px solid #ddd;
+          background: white;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+        ">Cancel</button>
+        <button id="jwt-submit" style="
+          padding: 10px 20px;
+          border: none;
+          background: #646cff;
+          color: white;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+        ">Continue</button>
+      </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    const input = document.getElementById('jwt-input');
+    const submitBtn = document.getElementById('jwt-submit');
+    const cancelBtn = document.getElementById('jwt-cancel');
+    
+    input.focus();
+    
+    submitBtn.onclick = () => {
+      const jwt = input.value.trim();
+      document.body.removeChild(overlay);
+      resolve(jwt);
+    };
+    
+    cancelBtn.onclick = () => {
+      document.body.removeChild(overlay);
+      resolve(null);
+    };
+    
+    // Allow Enter key to submit if not in textarea
+    submitBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        submitBtn.click();
+      }
+    });
+  });
+}
+
 // Get or create JWT token (for demo purposes)
-function getJWTToken() {
+async function getJWTToken() {
   let jwt = localStorage.getItem('cg_demo_jwt');
   
   if (!jwt) {
     console.log('[AUTH] No JWT found in localStorage');
     
-    // For demo purposes, use a test JWT or prompt user to login
-    jwt = prompt(
-      'Enter your JWT token (or leave empty to use demo mode):\n\n' +
-      'In production, users will be authenticated through your main app.\n\n' +
-      'To generate a test JWT, run: npm run generate-jwt'
-    );
+    // Show modal to get JWT
+    jwt = await showJWTModal();
     
-    if (!jwt || jwt.trim() === '') {
-      alert(
-        'Demo mode: In production, you need a valid JWT from your authentication system.\n\n' +
-        'Please configure JWT_SECRET in your .env file and generate a proper JWT token.\n\n' +
-        'Run: npm run generate-jwt'
-      );
-      jwt = 'DEMO_TOKEN_PLACEHOLDER';
+    if (!jwt) {
+      throw new Error('JWT token is required to proceed with payment');
     }
     
     localStorage.setItem('cg_demo_jwt', jwt);
     console.log('[AUTH] JWT stored in localStorage');
+    
+    // Update UI
+    updateJWTStatus();
   } else {
     console.log('[AUTH] Using existing JWT from localStorage');
   }
@@ -99,12 +194,10 @@ async function handlePayment(event) {
   
   try {
     // Get JWT token
-    const jwt = getJWTToken();
+    const jwt = await getJWTToken();
     
-    if (jwt === 'DEMO_TOKEN_PLACEHOLDER') {
-      throw new Error(
-        'Authentication required. Please set up JWT authentication in your application.'
-      );
+    if (!jwt) {
+      throw new Error('JWT token is required to proceed with payment');
     }
     
     // Generate idempotency key
@@ -158,9 +251,10 @@ async function handlePayment(event) {
       console.log('  Session ID:', data.data.session_id);
       console.log('  Checkout URL:', data.data.checkout_url);
       
-      // Store order ID for reference
+      // Store order ID and plan type for reference
       localStorage.setItem('cg_last_order_id', data.data.order_id);
       localStorage.setItem('cg_last_session_id', data.data.session_id);
+      localStorage.setItem('cg_last_plan_type', planType);
       
       console.log('\n[REDIRECT] Redirecting to Stripe Checkout...');
       console.log('='.repeat(80) + '\n');
@@ -185,12 +279,48 @@ async function handlePayment(event) {
   }
 }
 
+// Update JWT status indicator
+function updateJWTStatus() {
+  const jwt = localStorage.getItem('cg_demo_jwt');
+  const statusText = document.getElementById('jwt-status-text');
+  const clearBtn = document.getElementById('clear-jwt-btn');
+  const statusContainer = document.getElementById('jwt-status');
+  
+  if (jwt) {
+    statusText.textContent = '✓ JWT token stored';
+    statusText.style.color = '#22c55e';
+    statusContainer.style.background = '#f0fdf4';
+    statusContainer.style.border = '2px solid #22c55e';
+    clearBtn.style.display = 'block';
+  } else {
+    statusText.textContent = 'No JWT token stored';
+    statusText.style.color = '#666';
+    statusContainer.style.background = '#f5f5f5';
+    statusContainer.style.border = '2px solid #ddd';
+    clearBtn.style.display = 'none';
+  }
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[INIT] DOM Content Loaded');
   
+  // Update JWT status
+  updateJWTStatus();
+  
+  // Attach click handler to clear JWT button
+  const clearJWTBtn = document.getElementById('clear-jwt-btn');
+  if (clearJWTBtn) {
+    clearJWTBtn.addEventListener('click', () => {
+      localStorage.removeItem('cg_demo_jwt');
+      updateJWTStatus();
+      console.log('[AUTH] JWT cleared from localStorage');
+      alert('JWT token cleared. You will be prompted to enter a new token on your next payment.');
+    });
+  }
+  
   // Attach click handlers to all payment buttons
-  const paymentButtons = document.querySelectorAll('.cta-button[data-plan]');
+  const paymentButtons = document.querySelectorAll('.cg-button[data-plan]');
   console.log(`[INIT] Found ${paymentButtons.length} payment buttons`);
   
   paymentButtons.forEach((button, index) => {
@@ -225,4 +355,8 @@ document.addEventListener('visibilitychange', () => {
     console.log('[VISIBILITY] Page visible - ready for interaction');
   }
 });
+
+
+
+
 

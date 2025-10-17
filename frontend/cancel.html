@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Cancelled - ClassGuru</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Background with gradient halos -->
+  <div class="cg-background" aria-hidden="true">
+    <div class="cg-halo cg-halo--one"></div>
+    <div class="cg-halo cg-halo--two"></div>
+    <div class="cg-halo cg-halo--three"></div>
+  </div>
+
+  <div class="cg-template">
+    <!-- Header -->
+    <header class="cg-header">
+      <div class="cg-brand">
+        <div class="cg-logo">CG</div>
+        <div class="cg-brand-text">
+          <h1>ClassGuru</h1>
+          <p>AI-Powered Learning</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="cg-content">
+      <div class="result-container">
+        <!-- Cancel Card -->
+        <div class="cg-card text-center">
+          <!-- Cancel Icon -->
+          <div class="result-icon cancel">
+            <span>!</span>
+          </div>
+
+          <!-- Cancel Message -->
+          <h1 class="result-title">Payment Cancelled</h1>
+          <p class="result-message">
+            Your payment was cancelled. No charges have been made to your account.
+          </p>
+
+          <!-- Info Card -->
+          <div class="order-details">
+            <h3 style="margin: 0 0 16px; font-size: 1.1rem; font-weight: 600;">What Happened?</h3>
+            <div style="text-align: left;">
+              <p style="margin-bottom: 12px; color: var(--cg-muted);">You've cancelled the payment process. This could be because:</p>
+              <ul style="margin: 0; padding-left: 20px; color: var(--cg-muted);">
+                <li style="margin-bottom: 8px;">You decided not to complete the purchase</li>
+                <li style="margin-bottom: 8px;">You encountered an issue during checkout</li>
+                <li style="margin-bottom: 8px;">You want to review the plan details</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <a href="/payment" class="cg-button primary">
+              Try Again
+            </a>
+            <a href="mailto:support@classguru.ai" class="cg-button secondary">
+              Contact Support
+            </a>
+          </div>
+
+          <!-- Additional Help -->
+          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;">
+            <p style="margin-bottom: 8px; font-weight: 600; color: var(--cg-text);">Need help choosing a plan?</p>
+            <p class="mb-0">Our support team is here to assist you. Feel free to reach out if you have any questions.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="cg-footer">
+      <span>© 2025 ClassGuru. All rights reserved.</span>
+    </footer>
+  </div>
+
+  <script src="result.js"></script>
+</body>
+</html>

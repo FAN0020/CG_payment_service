@@ -7,6 +7,7 @@ import { dirname, join } from 'path'
 import { PaymentDatabase } from './lib/database.js'
 import { JWTManager } from './lib/jwt.js'
 import { StripeManager } from './lib/stripe.js'
+import { MockStripeManager } from './lib/mock-stripe.js'
 import { logger } from './lib/logger.js'
 import { initializeHandlers } from './handlers/index.js'
 import { registerPaymentRoutes } from './routes/payment.js'
@@ -19,30 +20,42 @@ const __dirname = dirname(__filename)
  * Load and validate environment variables
  */
 function loadConfig() {
-  const requiredVars = [
-    'STRIPE_SECRET_KEY',
-    'STRIPE_WEBHOOK_SECRET',
-    'JWT_SECRET',
-    'STRIPE_MONTHLY_PRICE_ID'
-  ]
+  const mockMode = process.env.MOCK_STRIPE_MODE === 'true'
+  
+  // In mock mode, Stripe credentials are not required
+  if (!mockMode) {
+    const requiredVars = [
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'JWT_SECRET',
+      'STRIPE_MONTHLY_PRICE_ID'
+    ]
 
-  for (const varName of requiredVars) {
-    if (!process.env[varName]) {
-      throw new Error(`Missing required environment variable: ${varName}`)
+    for (const varName of requiredVars) {
+      if (!process.env[varName]) {
+        throw new Error(`Missing required environment variable: ${varName}`)
+      }
+    }
+  } else {
+    // JWT_SECRET is always required
+    if (!process.env.JWT_SECRET) {
+      throw new Error('Missing required environment variable: JWT_SECRET')
     }
   }
 
   return {
     port: parseInt(process.env.PORT || '8790', 10),
     dbPath: process.env.DB_PATH || './data/payment.db',
-    stripeSecretKey: process.env.STRIPE_SECRET_KEY!,
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+    stripeSecretKey: process.env.STRIPE_SECRET_KEY || 'mock_key',
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || 'mock_secret',
     jwtSecret: process.env.JWT_SECRET!,
-    stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID!,
+    stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID || 'price_mock',
     planAmount: parseFloat(process.env.MONTHLY_PLAN_AMOUNT || '9.90'),
     planCurrency: process.env.MONTHLY_PLAN_CURRENCY || 'SGD',
-    successUrl: process.env.FRONTEND_SUCCESS_URL || 'http://localhost:3000/payment/success',
-    cancelUrl: process.env.FRONTEND_CANCEL_URL || 'http://localhost:3000/payment/cancel'
+    successUrl: process.env.FRONTEND_SUCCESS_URL || 'http://localhost:8790/payment?status=success',
+    cancelUrl: process.env.FRONTEND_CANCEL_URL || 'http://localhost:8790/payment?status=cancel',
+    mockMode,
+    mockScenario: process.env.MOCK_STRIPE_SCENARIO || 'success'
   }
 }
 
@@ -64,8 +77,15 @@ async function main() {
 
     // Initialize managers
     const jwtManager = new JWTManager(config.jwtSecret)
-    const stripeManager = new StripeManager(config.stripeSecretKey)
-    logger.info('Managers initialized')
+    const stripeManager = config.mockMode 
+      ? new MockStripeManager(config.mockScenario) 
+      : new StripeManager(config.stripeSecretKey)
+    
+    if (config.mockMode) {
+      logger.info('🧪 Mock Stripe Mode Enabled', { scenario: config.mockScenario })
+    } else {
+      logger.info('Managers initialized')
+    }
 
     // Create Fastify instance
     const fastify = Fastify({
@@ -81,10 +101,10 @@ async function main() {
       credentials: true
     })
 
-    // Register static file serving for demo frontend
-    const demoPath = join(__dirname, '..', 'demo')
+    // Register static file serving for frontend
+    const frontendPath = join(__dirname, '..', 'frontend')
     await fastify.register(fastifyStatic, {
-      root: demoPath,
+      root: frontendPath,
       prefix: '/payment/',
       decorateReply: true  // Enable sendFile method on reply
     })
@@ -103,6 +123,13 @@ async function main() {
     fastify.get('/payment/cancel', async (request, reply) => {
       return reply.sendFile('cancel.html')
     })
+
+    // Serve mock Stripe checkout page (only in mock mode)
+    if (config.mockMode) {
+      fastify.get('/mock-stripe/checkout', async (request, reply) => {
+        return reply.sendFile('mock-checkout.html')
+      })
+    }
 
     // Add raw body support for webhook signature verification
     fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {

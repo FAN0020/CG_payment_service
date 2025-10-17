@@ -21,7 +21,7 @@ export function createBillingSubscriptionQueryHandler(db: PaymentDatabase) {
 
       // Query logic
       let activeSubscription = null
-      let allOrders = []
+      let allOrders: any[] = []
 
       if (orderId) {
         // Query by order ID

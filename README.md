@@ -6,46 +6,12 @@ Production-ready payment service with comprehensive testing, modern tooling, and
 
 ## 🚀 Quick Start
 
-### Option 1: Mock Mode (No Stripe Setup Required) ⚡
-
-Perfect for development and testing **without** Stripe credentials:
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Run interactive mock setup
-npm run mock-stripe
-
-# 3. Set environment variables (from script output)
-export MOCK_STRIPE_MODE=true
-export MOCK_STRIPE_SCENARIO=success
-
-# 4. Start server
-npm run dev
-
-# 5. Test payment flow
-open http://localhost:8790/payment
-```
-
-**Mock mode features:**
-- ✅ No Stripe API keys needed
-- ✅ Multiple test scenarios (success, cancel, failures)
-- ✅ Identical to production flow
-- ✅ **Seamlessly switch to real Stripe with ONE env var**
-
-See [`docs/MOCK_STRIPE_GUIDE.md`](docs/MOCK_STRIPE_GUIDE.md) for details.
-
-### Option 2: Real Stripe Setup
-
-For production or testing with actual Stripe:
-
 ```bash
 # 1. Install dependencies
 npm install
 
 # 2. Configure environment
-cp .env.example .env
+cp env.example .env
 # Edit .env with your Stripe keys and JWT secret
 
 # 3. Validate configuration
@@ -68,8 +34,6 @@ open http://localhost:8790/payment
 
 - **TypeScript codebase** (~1,700 lines of production code)
 - **Complete Stripe integration** with webhooks and idempotency
-- **🧪 Mock Stripe system** for development without API keys
-- **🔌 Mainline-ready architecture** - same code for mock and production
 - **SQLite database** for order and subscription tracking
 - **Professional tooling** (Makefile, validation scripts, health checks)
 - **Modern frontend** following ClassGuru design system
@@ -205,7 +169,7 @@ node trial-test/test-scripts/5-test-frontend.js
 - ✅ Database: 13/13 tests passed
 - ✅ JWT: 11/11 tests passed
 - ✅ Server: Running & healthy
-- ⚠️ API Routes: 5/10 passed (mock Stripe limitation)
+- ✅ API Routes: Full integration with Stripe
 - ✅ Frontend: 25/26 tests passed
 
 See `trial-test/README.md` for details.
@@ -281,7 +245,6 @@ CG_payment_service/
 │   └── generate-test-jwt.js
 ├── docs/
 │   ├── openapi.yaml                # API specification
-│   ├── MOCK_STRIPE_GUIDE.md        # Mock Stripe usage guide
 │   └── MAINLINE_INTEGRATION.md     # Production integration guide
 ├── Makefile                     # Professional commands
 └── README.md                    # This file
@@ -289,22 +252,13 @@ CG_payment_service/
 
 ## 📚 Documentation
 
-### Mock Stripe System
-- **[Mock Stripe Guide](docs/MOCK_STRIPE_GUIDE.md)** - How to use the mock Stripe system for testing
-  - Interactive scenario selector
-  - Multiple test scenarios (success, cancel, failures)
-  - Environment setup instructions
-  - Troubleshooting tips
-
 ### Production Integration
-- **[Mainline Integration Guide](docs/MAINLINE_INTEGRATION.md)** - How the mock system integrates with production
-  - **🎯 Architecture overview** - Interface-based design
-  - **🔄 Flow diagrams** - Mock vs real Stripe comparison
+- **[Mainline Integration Guide](docs/MAINLINE_INTEGRATION.md)** - Production integration guide
+  - **🎯 Architecture overview** - Clean design
+  - **🔄 Flow diagrams** - Payment flow
   - **🌐 Environment configs** - Development, staging, production
   - **✅ Integration checklist** - Steps to go live
   - **💡 Design decisions** - Why it's built this way
-
-**Key Insight**: The same codebase works for both mock and production. Just toggle `MOCK_STRIPE_MODE`!
 
 ### API Documentation
 - **[OpenAPI Specification](docs/openapi.yaml)** - Complete API reference
@@ -315,7 +269,6 @@ CG_payment_service/
 ## 🚀 Production Deployment
 
 ### Pre-Deployment Checklist
-- [ ] **Disable mock mode**: Set `MOCK_STRIPE_MODE=false`
 - [ ] Switch to live Stripe keys (`sk_live_...`)
 - [ ] Create live products and update Price IDs
 - [ ] Configure production webhook in Stripe Dashboard
@@ -328,8 +281,6 @@ CG_payment_service/
 
 ### Production Environment
 ```env
-# CRITICAL: Disable mock mode for production!
-MOCK_STRIPE_MODE=false
 PORT=8790
 STRIPE_SECRET_KEY=sk_live_your_production_key
 STRIPE_WEBHOOK_SECRET=whsec_your_production_secret

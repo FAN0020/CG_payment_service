@@ -1,0 +1,13 @@
+serverAddr = "154.36.178.157"
+serverPort = 7000
+
+[auth]
+method = "token"
+token  = "classguruaipwd12262wenyz"
+
+[[proxies]]
+name       = "yp"
+type       = "tcp"
+localIP    = "127.0.0.1"
+localPort  = 8790
+remotePort =12281

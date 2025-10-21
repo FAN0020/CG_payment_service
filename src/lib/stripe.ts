@@ -18,15 +18,16 @@ export interface StripeSubscriptionInfo {
 }
 
 export class StripeManager {
-  public stripe: Stripe
+  private stripe: Stripe
 
   constructor(secretKey: string) {
     if (!secretKey) {
       throw new Error('Stripe secret key is required')
     }
     
-    if (!secretKey.startsWith('sk_')) {
-      throw new Error('Invalid Stripe secret key format. Key must start with "sk_"')
+    // Validate Stripe key format
+    if (!secretKey.startsWith('sk_test_') && !secretKey.startsWith('sk_live_')) {
+      throw new Error('Invalid Stripe secret key format. Must start with sk_test_ or sk_live_')
     }
     
     this.stripe = new Stripe(secretKey, {

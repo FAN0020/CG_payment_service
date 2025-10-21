@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Result - ClassGuru</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Additional styles for result page */
+    .result-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .result-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin: 0 auto 24px;
+      color: white;
+    }
+
+    .result-icon.success {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .result-icon.error {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .result-icon.timeout {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .result-icon.pending {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      animation: pulse 2s infinite;
+    }
+
+    .result-icon.cancel {
+      background: linear-gradient(135deg, #6b7280, #4b5563);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .result-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--cg-text);
+    }
+
+    .result-message {
+      font-size: 1.1rem;
+      color: var(--cg-muted);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .order-details {
+      background: var(--cg-surface);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+      border: 1px solid var(--cg-border);
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--cg-border);
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      font-weight: 600;
+      color: var(--cg-text);
+    }
+
+    .detail-value {
+      color: var(--cg-muted);
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.9rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .status-indicator.success {
+      background: rgba(16, 185, 129, 0.1);
+      color: #059669;
+    }
+
+    .status-indicator.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+    }
+
+    .status-indicator.timeout {
+      background: rgba(245, 158, 11, 0.1);
+      color: #d97706;
+    }
+
+    .status-indicator.pending {
+      background: rgba(99, 102, 241, 0.1);
+      color: #4f46e5;
+    }
+
+    .status-indicator.cancel {
+      background: rgba(107, 114, 128, 0.1);
+      color: #4b5563;
+    }
+
+    .timeout-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+      color: #d97706;
+    }
+
+    .timeout-warning h4 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .timeout-warning p {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .countdown {
+      font-weight: bold;
+      color: var(--cg-text);
+    }
+
+    .error-details {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.85rem;
+      color: #dc2626;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(99, 102, 241, 0.3);
+      border-radius: 50%;
+      border-top-color: #4f46e5;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 640px) {
+      .action-buttons {
+        flex-direction: column;
+      }
+      
+      .action-buttons .cg-button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background with gradient halos -->
+  <div class="cg-background" aria-hidden="true">
+    <div class="cg-halo cg-halo--one"></div>
+    <div class="cg-halo cg-halo--two"></div>
+    <div class="cg-halo cg-halo--three"></div>
+  </div>
+
+  <div class="cg-template">
+    <!-- Header -->
+    <header class="cg-header">
+      <div class="cg-brand">
+        <div class="cg-logo">CG</div>
+        <div class="cg-brand-text">
+          <h1>ClassGuru</h1>
+          <p>AI-Powered Learning</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="cg-content">
+      <div class="result-container">
+        <!-- Dynamic Result Card -->
+        <div class="cg-card text-center" id="result-card">
+          <!-- Dynamic Icon -->
+          <div class="result-icon" id="result-icon">
+            <span id="icon-text">?</span>
+          </div>
+
+          <!-- Dynamic Title -->
+          <h1 class="result-title" id="result-title">Processing Payment...</h1>
+          
+          <!-- Dynamic Message -->
+          <p class="result-message" id="result-message">
+            Please wait while we verify your payment status.
+          </p>
+
+          <!-- Status Indicator -->
+          <div class="status-indicator pending" id="status-indicator">
+            <div class="loading-spinner"></div>
+            <span>Processing...</span>
+          </div>
+
+          <!-- Timeout Warning (hidden by default) -->
+          <div class="timeout-warning hidden" id="timeout-warning">
+            <h4>⏰ Payment Timeout</h4>
+            <p>Your payment is taking longer than expected. This usually means the payment is still being processed. Please wait a moment or contact support if this persists.</p>
+          </div>
+
+          <!-- Order Details -->
+          <div class="order-details" id="order-details">
+            <div class="detail-row">
+              <span class="detail-label">Order ID:</span>
+              <span class="detail-value" id="order-id">Loading...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Session ID:</span>
+              <span class="detail-value" id="session-id">Loading...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Plan:</span>
+              <span class="detail-value" id="plan-name">Loading...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Status:</span>
+              <span class="detail-value" id="status-value">Processing...</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Amount:</span>
+              <span class="detail-value" id="amount-value">Loading...</span>
+            </div>
+          </div>
+
+          <!-- Error Details (hidden by default) -->
+          <div class="error-details hidden" id="error-details">
+            <strong>Error Details:</strong>
+            <div id="error-message">No additional error information available.</div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons" id="action-buttons">
+            <!-- Dynamic buttons will be inserted here -->
+          </div>
+
+          <!-- Additional Info -->
+          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;" id="additional-info">
+            <p style="margin-bottom: 8px;">If you have any questions, please contact our support team.</p>
+            <p class="mb-0">Support: <a href="mailto:support@classguru.ai" style="color: var(--cg-primary);">support@classguru.ai</a></p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="cg-footer">
+      <span>© 2025 ClassGuru. All rights reserved.</span>
+    </footer>
+  </div>
+
+  <script src="result.js"></script>
+</body>
+</html>
+

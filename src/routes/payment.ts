@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { CreateSubscriptionRequestSchema, VerifySubscriptionRequestSchema, ValidationError, PAYMENT_WHITELISTS } from '../types/index.js'
 import { JWTManager } from '../lib/jwt.js'
-import { IStripeManager } from '../lib/stripe.js'
+import { StripeManager } from '../lib/stripe.js'
 import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
@@ -22,7 +22,7 @@ interface PaymentConfig {
 export async function registerPaymentRoutes(
   fastify: FastifyInstance,
   jwtManager: JWTManager,
-  stripeManager: IStripeManager,
+  stripeManager: StripeManager,
   db: PaymentDatabase,
   config: PaymentConfig
 ): Promise<void> {
@@ -279,6 +279,96 @@ export async function registerPaymentRoutes(
       return reply.code(500).send({
         status_code: 500,
         message: `Failed to verify subscription: ${error.message}`
+      })
+    }
+  })
+
+  /**
+   * GET /api/payment/status/:sessionId
+   * Get payment status by session ID
+   */
+  fastify.get('/api/payment/status/:sessionId', async (request: FastifyRequest, reply: FastifyReply) => {
+    const requestId = nanoid()
+    const { sessionId } = request.params as { sessionId: string }
+
+    try {
+      logger.info('Payment status request', {
+        requestId,
+        sessionId
+      })
+
+      // Get order by session ID
+      const order = db.getOrderBySessionId(sessionId)
+      
+      if (!order) {
+        logger.warn('Order not found for session', {
+          requestId,
+          sessionId
+        })
+        return reply.code(404).send({
+          status_code: 404,
+          message: 'Order not found',
+          data: {
+            session_id: sessionId,
+            status: 'not_found'
+          }
+        })
+      }
+
+      // Determine payment status
+      let paymentStatus = 'pending'
+      let error = null
+
+      if (order.status === 'completed') {
+        paymentStatus = 'success'
+      } else if (order.status === 'failed') {
+        paymentStatus = 'failed'
+        error = order.error_message || 'Payment failed'
+      } else if (order.status === 'cancelled') {
+        paymentStatus = 'cancelled'
+        error = 'Payment was cancelled'
+      } else if (order.status === 'pending') {
+        paymentStatus = 'pending'
+      }
+
+      logger.info('Payment status retrieved', {
+        requestId,
+        sessionId,
+        orderId: order.order_id,
+        status: paymentStatus
+      })
+
+      return reply.code(200).send({
+        status_code: 200,
+        message: 'Payment status retrieved successfully',
+        data: {
+          session_id: sessionId,
+          order_id: order.order_id,
+          status: paymentStatus,
+          amount: order.amount,
+          currency: order.currency,
+          plan: order.plan,
+          error: error,
+          created_at: order.created_at,
+          updated_at: order.updated_at
+        }
+      })
+
+    } catch (error: any) {
+      logger.error('Payment status request failed', {
+        requestId,
+        sessionId,
+        error: error.message
+      })
+      
+      return reply.code(500).send({
+        status_code: 500,
+        message: 'Internal server error',
+        data: {
+          session_id: sessionId,
+          status: 'error',
+          error: error.message
+        }
       })
     }
   })

@@ -4,7 +4,7 @@ Production-ready payment interface following ClassGuru's design system.
 
 ## Features
 
-- Two payment plans: Trial ($1 for 2 days) and Monthly ($12.90/month)
+- Three payment plans: Test ($1 for 2 days), Monthly ($9.90/month), and Monthly Pro ($58.90/month)
 - Complete user journey: selection → success/cancel pages
 - Glassmorphism design with responsive layout
 - Accessible (keyboard navigation, reduced motion support)
@@ -14,13 +14,15 @@ Production-ready payment interface following ClassGuru's design system.
 ### 1. Configure Stripe Products
 
 1. Go to [Stripe Dashboard → Products](https://dashboard.stripe.com/test/products)
-2. Create two products:
-   - **Trial**: $1.00 USD one-time
-   - **Monthly**: $12.90 USD recurring monthly
+2. Create three products:
+   - **Test Plan**: $1.00 USD one-time
+   - **Monthly Plan**: $9.90 USD recurring monthly
+   - **Monthly Pro Plan**: $58.90 USD recurring monthly
 3. Add Price IDs to `.env`:
    ```
-   STRIPE_TRIAL_PRICE_ID=price_your_trial_price_id
+   STRIPE_TEST_PRICE_ID=price_your_test_price_id
    STRIPE_MONTHLY_PRICE_ID=price_your_monthly_price_id
+   STRIPE_MONTHLY_PRO_PRICE_ID=price_your_monthly_pro_price_id
    ```
 
 ### 2. Generate Test JWT

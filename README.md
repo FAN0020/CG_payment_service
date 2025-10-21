@@ -6,19 +6,29 @@ Production-ready payment service with comprehensive testing, modern tooling, and
 
 ## 🚀 Quick Start
 
+### Setup
 ```bash
 # 1. Install dependencies
 npm install
 
 # 2. Configure environment
-cp env.example .env
+cp .env.example .env
 # Edit .env with your Stripe keys and JWT secret
 
 # 3. Validate configuration
 npm run validate
+```
 
-# 4. Start server
+### Start Server
+```bash
+# Simple start
 npm start
+
+# Or using Make
+make start
+
+# Development mode (watch)
+make start-dev
 ```
 
 ### Test Payment Flow
@@ -93,8 +103,9 @@ npm run kill-server   # Kill existing server
 
 ## 💳 Payment Plans
 
-- **Trial Plan**: $1 USD for 2-day access
-- **Monthly Plan**: $12.90 USD/month recurring
+- **Test Plan**: $1 USD for 2-day access
+- **Monthly Plan**: $9.90 USD/month recurring
+- **Monthly Pro Plan**: $58.90 USD/month recurring
 
 ### Test Cards
 - **Success**: `4242 4242 4242 4242`
@@ -111,8 +122,9 @@ PORT=8790
 # Stripe (use test keys for development)
 STRIPE_SECRET_KEY=sk_test_your_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
-STRIPE_TRIAL_PRICE_ID=price_your_trial_price_id
+STRIPE_TEST_PRICE_ID=price_your_test_price_id
 STRIPE_MONTHLY_PRICE_ID=price_your_monthly_price_id
+STRIPE_MONTHLY_PRO_PRICE_ID=price_your_monthly_pro_price_id
 
 # JWT (MUST match mainline config)
 JWT_SECRET=your_shared_secret_at_least_32_characters
@@ -124,8 +136,9 @@ DB_PATH=./data/payment.db
 ### Stripe Setup
 1. Create account at [stripe.com](https://stripe.com)
 2. Go to **Dashboard → Products** → Create products:
-   - Trial: $1.00 one-time
-   - Monthly: $12.90 recurring
+   - Test Plan: $1.00 one-time
+   - Monthly Plan: $9.90 recurring monthly
+   - Monthly Pro Plan: $58.90 recurring monthly
 3. Copy Price IDs to `.env`
 4. For webhooks: `stripe listen --forward-to localhost:8790/webhooks/stripe`
 
@@ -169,7 +182,7 @@ node trial-test/test-scripts/5-test-frontend.js
 - ✅ Database: 13/13 tests passed
 - ✅ JWT: 11/11 tests passed
 - ✅ Server: Running & healthy
-- ✅ API Routes: Full integration with Stripe
+- ✅ API Routes: Ready for real Stripe integration
 - ✅ Frontend: 25/26 tests passed
 
 See `trial-test/README.md` for details.
@@ -244,40 +257,23 @@ CG_payment_service/
 │   ├── validate-env.js
 │   └── generate-test-jwt.js
 ├── docs/
-│   ├── openapi.yaml                # API specification
-│   └── MAINLINE_INTEGRATION.md     # Production integration guide
+│   └── openapi.yaml             # API specification
 ├── Makefile                     # Professional commands
 └── README.md                    # This file
 ```
 
-## 📚 Documentation
-
-### Production Integration
-- **[Mainline Integration Guide](docs/MAINLINE_INTEGRATION.md)** - Production integration guide
-  - **🎯 Architecture overview** - Clean design
-  - **🔄 Flow diagrams** - Payment flow
-  - **🌐 Environment configs** - Development, staging, production
-  - **✅ Integration checklist** - Steps to go live
-  - **💡 Design decisions** - Why it's built this way
-
-### API Documentation
-- **[OpenAPI Specification](docs/openapi.yaml)** - Complete API reference
-  - Payment endpoints
-  - Webhook endpoints
-  - Request/response schemas
-
 ## 🚀 Production Deployment
 
 ### Pre-Deployment Checklist
-- [ ] Switch to live Stripe keys (`sk_live_...`)
+- [x] Remove mock Stripe code
+- [x] Setup real Stripe integration structure
+- [ ] Configure your Stripe keys in .env
+- [ ] Switch to live Stripe keys (`sk_live_...`) for production
 - [ ] Create live products and update Price IDs
 - [ ] Configure production webhook in Stripe Dashboard
 - [ ] Use 64+ character random JWT secret
-- [ ] Update `FRONTEND_SUCCESS_URL` and `FRONTEND_CANCEL_URL` to production domain
 - [ ] Enable HTTPS/TLS
 - [ ] Set up monitoring and alerts
-
-**See [Mainline Integration Guide](docs/MAINLINE_INTEGRATION.md) for detailed deployment steps.**
 
 ### Production Environment
 ```env

@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import Stripe from 'stripe'
-import { IStripeManager } from '../lib/stripe.js'
+import { StripeManager } from '../lib/stripe.js'
 import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
@@ -11,7 +11,7 @@ import { logger } from '../lib/logger.js'
  */
 export async function registerWebhookRoutes(
   fastify: FastifyInstance,
-  stripeManager: IStripeManager,
+  stripeManager: StripeManager,
   db: PaymentDatabase,
   webhookSecret: string
 ): Promise<void> {
@@ -20,6 +20,9 @@ export async function registerWebhookRoutes(
     config: {
       // Disable body parsing to get raw body for signature verification
       rawBody: true
+    },
+    schema: {
+      body: false // Disable JSON schema validation for raw body
     }
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const signature = request.headers['stripe-signature'] as string
@@ -32,6 +35,11 @@ export async function registerWebhookRoutes(
     try {
       // Verify webhook signature
       const rawBody = (request as any).rawBody || request.body
+      logger.info('Webhook raw body type', { 
+        rawBodyType: typeof rawBody,
+        isBuffer: Buffer.isBuffer(rawBody),
+        bodyLength: rawBody ? rawBody.length : 0
+      })
       const event = stripeManager.verifyWebhookSignature(rawBody, signature, webhookSecret)
 
       const requestId = event.id
@@ -51,12 +59,13 @@ export async function registerWebhookRoutes(
       }
 
       // Handle different event types
-      await handleStripeEvent(event, db, requestId)
+      const orderId = await handleStripeEvent(event, db, requestId)
 
       // Record event as processed
       db.recordEvent({
         event_id: event.id,
-        event_type: event.type
+        event_type: event.type,
+        order_id: orderId || undefined
       })
 
       logger.info('Webhook processed successfully', {
@@ -78,34 +87,31 @@ export async function registerWebhookRoutes(
 /**
  * Handle different Stripe event types
  */
-async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, requestId: string): Promise<void> {
+async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, requestId: string): Promise<string | null> {
   switch (event.type) {
     case 'checkout.session.completed':
-      await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, db, requestId)
-      break
+      return await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, db, requestId)
 
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
-      await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, db, requestId)
-      break
+      return await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, db, requestId)
 
     case 'customer.subscription.deleted':
-      await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, db, requestId)
-      break
+      return await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, db, requestId)
 
     case 'invoice.payment_succeeded':
-      await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, db, requestId)
-      break
+    case 'invoice_payment.paid':
+      return await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, db, requestId)
 
     case 'invoice.payment_failed':
-      await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, db, requestId)
-      break
+      return await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, db, requestId)
 
     default:
       logger.info('Unhandled event type', {
         requestId,
         eventType: event.type
       })
+      return null
   }
 }
 
@@ -117,14 +123,14 @@ async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
   db: PaymentDatabase,
   requestId: string
-): Promise<void> {
+): Promise<string | null> {
   const orderId = session.metadata?.order_id
   const subscriptionId = session.subscription as string
   const customerId = session.customer as string
 
   if (!orderId) {
     logger.warn('Checkout session missing order_id in metadata', { requestId, sessionId: session.id })
-    return
+    return null
   }
 
   // Update order via plugin
@@ -145,6 +151,8 @@ async function handleCheckoutSessionCompleted(
     orderId,
     subscriptionId
   })
+
+  return orderId
 }
 
 /**
@@ -155,7 +163,7 @@ async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
   db: PaymentDatabase,
   requestId: string
-): Promise<void> {
+): Promise<string | null> {
   const orderId = subscription.metadata?.order_id
   const subscriptionId = subscription.id
   const status = mapStripeStatus(subscription.status)
@@ -176,7 +184,7 @@ async function handleSubscriptionUpdated(
       subscriptionId,
       orderId
     })
-    return
+    return null
   }
 
   // Update subscription via plugin
@@ -197,6 +205,8 @@ async function handleSubscriptionUpdated(
     subscriptionId,
     status
   })
+
+  return order.order_id
 }
 
 /**
@@ -207,7 +217,7 @@ async function handleSubscriptionDeleted(
   subscription: Stripe.Subscription,
   db: PaymentDatabase,
   requestId: string
-): Promise<void> {
+): Promise<string | null> {
   const subscriptionId = subscription.id
   const order = db.getOrderByStripeSubscriptionId(subscriptionId)
 
@@ -216,7 +226,7 @@ async function handleSubscriptionDeleted(
       requestId,
       subscriptionId
     })
-    return
+    return null
   }
 
   await handlerRegistry.execute(
@@ -233,6 +243,8 @@ async function handleSubscriptionDeleted(
     orderId: order.order_id,
     subscriptionId
   })
+
+  return order.order_id
 }
 
 /**
@@ -243,11 +255,11 @@ async function handleInvoicePaymentSucceeded(
   invoice: Stripe.Invoice,
   db: PaymentDatabase,
   requestId: string
-): Promise<void> {
+): Promise<string | null> {
   const subscriptionId = invoice.subscription as string
 
   if (!subscriptionId) {
-    return
+    return null
   }
 
   const order = db.getOrderByStripeSubscriptionId(subscriptionId)
@@ -257,7 +269,7 @@ async function handleInvoicePaymentSucceeded(
       requestId,
       subscriptionId
     })
-    return
+    return null
   }
 
   // Extend subscription period
@@ -279,6 +291,8 @@ async function handleInvoicePaymentSucceeded(
     subscriptionId,
     expiresAt
   })
+
+  return order.order_id
 }
 
 /**
@@ -289,11 +303,11 @@ async function handleInvoicePaymentFailed(
   invoice: Stripe.Invoice,
   db: PaymentDatabase,
   requestId: string
-): Promise<void> {
+): Promise<string | null> {
   const subscriptionId = invoice.subscription as string
 
   if (!subscriptionId) {
-    return
+    return null
   }
 
   const order = db.getOrderByStripeSubscriptionId(subscriptionId)
@@ -303,7 +317,7 @@ async function handleInvoicePaymentFailed(
       requestId,
       subscriptionId
     })
-    return
+    return null
   }
 
   await handlerRegistry.execute(
@@ -320,6 +334,8 @@ async function handleInvoicePaymentFailed(
     orderId: order.order_id,
     subscriptionId
   })
+
+  return order.order_id
 }
 
 /**

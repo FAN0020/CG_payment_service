@@ -163,6 +163,11 @@ export class PaymentDatabase {
     }
   }
 
+  // Alias for API consistency
+  getOrderBySessionId(sessionId: string): SubscriptionOrder | null {
+    return this.getOrderByStripeSessionId(sessionId)
+  }
+
   getOrderByStripeSubscriptionId(subscriptionId: string): SubscriptionOrder | null {
     try {
       const stmt = this.db.prepare('SELECT * FROM subscription_orders WHERE stripe_subscription_id = ?')

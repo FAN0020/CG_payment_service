@@ -42,9 +42,13 @@ export interface SubscriptionOrder {
   payment_method?: string              // From JWT
   platform?: string                    // From JWT metadata
   client_ref?: string                  // From JWT metadata
+  request_id?: string                  // Short-lived request ID (15 min TTL)
+  ad_source?: string                   // Advertising source
+  campaign_id?: string                 // Campaign identifier
   created_at: number
   updated_at: number
   expires_at?: number
+  request_expires_at?: number          // Request ID expiration timestamp
 }
 
 export interface PaymentEvent {
@@ -78,6 +82,9 @@ export const JWTPayloadSchema = z.object({
   
   // Optional: authorization roles/permissions
   roles: z.array(z.string()).optional(),
+  
+  // Optional: role field for backward compatibility
+  role: z.string().optional(),
 })
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>
@@ -87,7 +94,7 @@ export type JWTPayload = z.infer<typeof JWTPayloadSchema>
 // ============================================================================
 
 // Allowed values for validation
-const ALLOWED_PRODUCTS = ['test-plan', 'monthly-plan', 'monthly-plan-pro'] as const
+const ALLOWED_PRODUCTS = ['monthly-plan', 'monthly-plan-pro'] as const
 const ALLOWED_CURRENCIES = ['USD'] as const
 const ALLOWED_PAYMENT_METHODS = ['card', 'alipay', 'wechat', 'paynow', 'grabpay'] as const
 

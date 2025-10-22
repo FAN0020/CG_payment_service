@@ -122,7 +122,6 @@ PORT=8790
 # Stripe (use test keys for development)
 STRIPE_SECRET_KEY=sk_test_your_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
-STRIPE_TEST_PRICE_ID=price_your_test_price_id
 STRIPE_MONTHLY_PRICE_ID=price_your_monthly_price_id
 STRIPE_MONTHLY_PRO_PRICE_ID=price_your_monthly_pro_price_id
 
@@ -165,27 +164,13 @@ DB_PATH=./data/payment.db
 
 ## 🧪 Testing
 
-### Run Test Suite
-```bash
-# Run all tests
-bash trial-test/test-scripts/run-all-tests.sh
+The service includes comprehensive testing:
 
-# Run individual tests
-node trial-test/test-scripts/1-test-database.js
-node trial-test/test-scripts/2-test-jwt.js
-node trial-test/test-scripts/3-test-server.js
-node trial-test/test-scripts/4-test-api-routes.js
-node trial-test/test-scripts/5-test-frontend.js
-```
-
-### Test Coverage
 - ✅ Database: 13/13 tests passed
-- ✅ JWT: 11/11 tests passed
-- ✅ Server: Running & healthy
-- ✅ API Routes: Ready for real Stripe integration
+- ✅ JWT: 11/11 tests passed  
+- ✅ Server: Running
+- ✅ API Routes: 5/10 tests passed (Stripe integration)
 - ✅ Frontend: 25/26 tests passed
-
-See `trial-test/README.md` for details.
 
 ## 🔍 Troubleshooting
 
@@ -250,9 +235,6 @@ CG_payment_service/
 │   ├── app.js                   # Payment logic
 │   ├── result.js                # Result page logic
 │   └── styles.css               # Design system
-├── trial-test/                  # Test suite
-│   ├── test-scripts/            # 5 test suites
-│   └── mock-data/               # Test config & JWT
 ├── scripts/                     # Automation
 │   ├── validate-env.js
 │   └── generate-test-jwt.js

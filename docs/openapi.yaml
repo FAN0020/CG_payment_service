@@ -1,8 +1,8 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: ClassGuru Payment Service API
   version: 1.0.0
-  description: Standalone Stripe subscription billing microservice for ClassGuru
+  description: Encapsulated Stripe subscription billing microservice for ClassGuru mainline integration
   contact:
     name: ClassGuru Support
 
@@ -13,10 +13,204 @@ servers:
     description: Production
 
 security:
-  - JWT: []
+  - bearerAuth: []
 
 paths:
-  /api/payment/health:
+  /api/payments/create-session:
+    post:
+      summary: Create Stripe checkout session (mainline sends only uid)
+      description: Creates a Stripe checkout session for new subscription. Mainline sends only uid, payment service decides the plan internally.
+      security: 
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uid
+              properties:
+                uid:
+                  type: string
+                  description: User ID (must match JWT sub unless admin)
+                  example: user-123456
+                ad_source:
+                  type: string
+                  description: Advertising source for analytics
+                  example: google_ads
+                campaign_id:
+                  type: string
+                  description: Campaign identifier for analytics
+                  example: summer_promo_2024
+      responses:
+        '200':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                code: 200
+                message: Session created
+                date: "2025-01-22T04:00:00Z"
+                requestId: "req_abcd123"
+                data:
+                  checkoutUrl: "https://checkout.stripe.com/pay/cs_test_..."
+                  requestId: "req_abcd123"
+                  orderId: "order_xyz789"
+                  sessionId: "cs_test_..."
+        '400':
+          description: Invalid request (missing uid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Unauthorized (invalid JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '403':
+          description: Forbidden (user trying to create session for another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/payments/status/{requestId}:
+    get:
+      summary: Get payment status by request ID
+      description: Query payment status using the short-lived request ID returned from create-session
+      security: 
+        - bearerAuth: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: 
+            type: string
+          description: Short-lived request ID (15 min TTL)
+          example: req_abcd123
+      responses:
+        '200':
+          description: Payment status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              examples:
+                pending:
+                  summary: Payment pending
+                  value:
+                    code: 200
+                    message: Payment status retrieved
+                    date: "2025-01-22T04:00:00Z"
+                    requestId: "req_xyz789"
+                    data:
+                      requestId: "req_abcd123"
+                      orderId: "order_xyz789"
+                      status: "pending"
+                      amount: 9.90
+                      currency: "USD"
+                      plan: "monthly-plan"
+                      createdAt: 1733011200000
+                      updatedAt: 1733011200000
+                success:
+                  summary: Payment successful
+                  value:
+                    code: 200
+                    message: Payment status retrieved
+                    date: "2025-01-22T04:00:00Z"
+                    requestId: "req_xyz789"
+                    data:
+                      requestId: "req_abcd123"
+                      orderId: "order_xyz789"
+                      status: "success"
+                      amount: 9.90
+                      currency: "USD"
+                      plan: "monthly-plan"
+                      createdAt: 1733011200000
+                      updatedAt: 1733011200000
+        '401':
+          description: Unauthorized (invalid JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '403':
+          description: Forbidden (user trying to access another user's order)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '410':
+          description: Request ID expired (15 min TTL)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/payments/admin/query/{uid}:
+    get:
+      summary: Admin query orders by UID
+      description: Query all orders for a specific user (admin only)
+      security: 
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema: 
+            type: string
+          description: User ID to query
+          example: user-123456
+      responses:
+        '200':
+          description: Orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                code: 200
+                message: Orders retrieved
+                date: "2025-01-22T04:00:00Z"
+                requestId: "req_xyz789"
+                data:
+                  uid: "user-123456"
+                  orders:
+                    - orderId: "order_xyz789"
+                      status: "active"
+                      plan: "monthly-plan"
+                      amount: 9.90
+                      currency: "USD"
+                      createdAt: 1733011200000
+                      updatedAt: 1733011200000
+                      requestId: "req_abcd123"
+                      adSource: "google_ads"
+                      campaignId: "summer_promo_2024"
+        '401':
+          description: Unauthorized (invalid JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '403':
+          description: Forbidden (admin access required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/payments/health:
     get:
       summary: Health check
       description: Returns service health status
@@ -27,166 +221,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: healthy
-                  service:
-                    type: string
-                    example: payment
-                  timestamp:
-                    type: integer
-                    example: 1733011200000
-
-  /api/payment/create-subscription:
-    post:
-      summary: Create subscription checkout session
-      description: Creates a Stripe checkout session for new subscription. Returns checkout URL to redirect user.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - jwt
-                - idempotency_key
-              properties:
-                jwt:
-                  type: string
-                  description: JWT token for authentication (contains user ID only)
-                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                idempotency_key:
-                  type: string
-                  format: uuid
-                  description: Client-generated UUID v4 for duplicate prevention
-                  example: 550e8400-e29b-41d4-a716-446655440000
-                product_id:
-                  type: string
-                  enum: [trial-plan, monthly-plan, annual-plan, basic-plan, premium-plan]
-                  default: monthly-plan
-                  description: Product to subscribe to
-                  example: monthly-plan
-                currency:
-                  type: string
-                  enum: [SGD, USD, EUR, MYR]
-                  default: SGD
-                  description: Currency for payment
-                  example: SGD
-                payment_method:
-                  type: string
-                  enum: [card, alipay, wechat, paynow, grabpay]
-                  description: Preferred payment method (optional)
-                  example: card
-                payment_gateway:
-                  type: string
-                  enum: [stripe]
-                  default: stripe
-                  description: Payment gateway to use
-                customer_email:
-                  type: string
-                  format: email
-                  description: Customer email for Stripe checkout (optional)
-                  example: user@example.com
-                platform:
-                  type: string
-                  enum: [web, ios, android]
-                  description: Platform identifier (metadata)
-                  example: web
-                client_ref:
-                  type: string
-                  description: Client reference for tracking (metadata)
-                  example: checkout_btn_v3
-      responses:
-        '200':
-          description: Checkout session created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/ApiResponse'
               example:
-                status_code: 200
-                message: Checkout session created successfully
+                code: 200
+                message: Service healthy
+                date: "2025-01-22T04:00:00Z"
+                requestId: "req_xyz789"
                 data:
-                  checkout_url: https://checkout.stripe.com/c/pay/cs_test_...
-                  order_id: order_abc123xyz
-                  session_id: cs_test_...
-                requestId: V1StGXR8_Z5jdHi6B-myT
-        '400':
-          description: Invalid request (bad JWT, missing idempotency_key, invalid product_id)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Duplicate request - returns existing order
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                status_code: 200
-                message: Existing order returned (duplicate request)
-                data:
-                  checkout_url: https://checkout.stripe.com/c/pay/cs_test_...
-                  order_id: order_abc123xyz
-                  session_id: cs_test_...
-
-  /api/payment/verify-subscription:
-    post:
-      summary: Verify subscription status
-      description: Checks if user has an active subscription
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - jwt
-              properties:
-                jwt:
-                  type: string
-                  description: JWT token with user identity
-                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-      responses:
-        '200':
-          description: Subscription status retrieved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              examples:
-                active:
-                  summary: Active subscription
-                  value:
-                    status_code: 200
-                    message: Subscription status retrieved
-                    data:
-                      is_active: true
-                      subscription:
-                        order_id: order_abc123xyz
-                        plan: monthly-plan
-                        status: active
-                        expires_at: 1735689600000
-                        created_at: 1733011200000
-                    requestId: V1StGXR8_Z5jdHi6B-myT
-                inactive:
-                  summary: No active subscription
-                  value:
-                    status_code: 200
-                    message: Subscription status retrieved
-                    data:
-                      is_active: false
-                      subscription: null
-                    requestId: V1StGXR8_Z5jdHi6B-myT
-        '400':
-          description: Invalid JWT
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                  status: "healthy"
+                  service: "payment"
+                  timestamp: 1733011200000
 
   /webhooks/stripe:
     post:
@@ -223,34 +267,50 @@ paths:
                     type: string
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token signed with shared secret (HS256). Must contain sub (user ID) and iss (mainline)
+    StripeSignature:
+      type: apiKey
+      in: header
+      name: stripe-signature
+      description: Stripe webhook signature for verification
+
   schemas:
-    SuccessResponse:
+    ApiResponse:
       type: object
+      description: Standardized API response format
+      required:
+        - code
+        - message
+        - date
+        - requestId
+        - data
       properties:
-        status_code:
+        code:
           type: integer
+          description: HTTP status code
           example: 200
         message:
           type: string
-          example: Operation completed successfully
+          description: Human-readable message
+          example: "Operation completed successfully"
+        date:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp
+          example: "2025-01-22T04:00:00Z"
+        requestId:
+          type: string
+          description: Unique request identifier
+          example: "req_abcd123"
         data:
           type: object
-        requestId:
-          type: string
-          example: V1StGXR8_Z5jdHi6B-myT
-
-    ErrorResponse:
-      type: object
-      properties:
-        status_code:
-          type: integer
-          example: 400
-        message:
-          type: string
-          example: Invalid request
-        requestId:
-          type: string
-          example: V1StGXR8_Z5jdHi6B-myT
+          description: Response payload
+          additionalProperties: true
 
     JWTPayload:
       type: object
@@ -258,8 +318,6 @@ components:
       required:
         - sub
         - iss
-        - iat
-        - exp
       properties:
         sub:
           type: string
@@ -286,26 +344,15 @@ components:
           type: array
           items:
             type: string
-          description: User roles/permissions (optional)
-          example: ["user", "premium"]
-
-  securitySchemes:
-    JWT:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT token signed with shared secret (HS256)
-    StripeSignature:
-      type: apiKey
-      in: header
-      name: stripe-signature
-      description: Stripe webhook signature for verification
+          description: User roles/permissions (optional, "admin" for admin access)
+          example: ["user", "admin"]
 
 tags:
-  - name: Payment
-    description: Subscription payment operations
+  - name: Payments
+    description: Payment operations for mainline integration
+  - name: Admin
+    description: Admin-only operations
   - name: Health
     description: Service health monitoring
   - name: Webhooks
     description: External webhook handlers
-

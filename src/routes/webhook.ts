@@ -134,6 +134,35 @@ async function handleCheckoutSessionCompleted(
   // Only add subscription/customer IDs if they exist (for subscription payments)
   if (subscriptionId) {
     updateData.stripeSubscriptionId = subscriptionId
+    
+    // For subscription payments, try to fetch subscription details to get expiration
+    try {
+      const stripe = stripeManager.getStripe()
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+      
+      
+      // Extract expiration timestamp with fallback logic
+      let expiresAt: number | undefined = undefined
+      
+      if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
+        expiresAt = subscription.current_period_end * 1000
+      } else if (subscription.billing_cycle_anchor && typeof subscription.billing_cycle_anchor === 'number') {
+        expiresAt = subscription.billing_cycle_anchor * 1000
+      } else if (subscription.trial_end && typeof subscription.trial_end === 'number') {
+        expiresAt = subscription.trial_end * 1000
+      }
+      
+      if (expiresAt) {
+        updateData.expiresAt = expiresAt
+      }
+    } catch (error) {
+      logger.warn('Failed to fetch subscription details for checkout session', {
+        requestId,
+        orderId,
+        subscriptionId,
+        error: error.message
+      })
+    }
   }
   if (customerId) {
     updateData.stripeCustomerId = customerId
@@ -167,7 +196,20 @@ async function handleSubscriptionUpdated(
   const orderId = subscription.metadata?.order_id
   const subscriptionId = subscription.id
   const status = mapStripeStatus(subscription.status)
-  const expiresAt = subscription.current_period_end * 1000
+  
+  
+  // Extract expiration timestamp with fallback logic
+  let expiresAt: number | undefined = undefined
+  
+  if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
+    expiresAt = subscription.current_period_end * 1000
+  } else if (subscription.billing_cycle_anchor && typeof subscription.billing_cycle_anchor === 'number') {
+    // Fallback to billing cycle anchor if current_period_end is not available
+    expiresAt = subscription.billing_cycle_anchor * 1000
+  } else if (subscription.trial_end && typeof subscription.trial_end === 'number') {
+    // For trial subscriptions, use trial end date
+    expiresAt = subscription.trial_end * 1000
+  }
 
   // Try to find order by subscription ID if no order_id in metadata
   let order = null
@@ -272,8 +314,15 @@ async function handleInvoicePaymentSucceeded(
     return null
   }
 
-  // Extend subscription period
-  const expiresAt = invoice.period_end * 1000
+  // Extract expiration timestamp with fallback logic
+  let expiresAt: number | undefined = undefined
+  
+  if (invoice.period_end && typeof invoice.period_end === 'number') {
+    expiresAt = invoice.period_end * 1000
+  } else if (invoice.period_start && typeof invoice.period_start === 'number') {
+    // Fallback to period start + 30 days if period_end is not available
+    expiresAt = (invoice.period_start + (30 * 24 * 60 * 60)) * 1000
+  }
 
   await handlerRegistry.execute(
     'update-subscription',

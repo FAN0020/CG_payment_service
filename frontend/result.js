@@ -159,8 +159,8 @@ async function pollPaymentStatus(sessionId, orderId, planType) {
         clearPolling();
         handlePaymentResult(PAYMENT_STATES.SUCCESS, {
           orderId: data.order_id || orderId,
-          sessionId,
-          planType,
+          sessionId: data.session_id || sessionId,
+          planType: data.plan || planType,
           amount: data.amount,
           currency: data.currency
         });
@@ -168,8 +168,8 @@ async function pollPaymentStatus(sessionId, orderId, planType) {
         clearPolling();
         handlePaymentResult(PAYMENT_STATES.FAILED, {
           orderId: data.order_id || orderId,
-          sessionId,
-          planType,
+          sessionId: data.session_id || sessionId,
+          planType: data.plan || planType,
           error: data.error || 'Payment failed'
         });
       }

@@ -31,16 +31,33 @@
       <div class="result-container">
         <!-- Success Card -->
         <div class="cg-card text-center">
-          <!-- Success Icon -->
-          <div class="result-icon success">
-            <span>✓</span>
+          <!-- Result Icon -->
+          <div class="result-icon success" id="result-icon">
+            <span id="icon-text">✓</span>
           </div>
 
-          <!-- Success Message -->
-          <h1 class="result-title">Payment Successful!</h1>
-          <p class="result-message">
+          <!-- Result Title -->
+          <h1 class="result-title" id="result-title">Payment Successful!</h1>
+          <p class="result-message" id="result-message">
             Thank you for subscribing to ClassGuru. Your payment has been processed successfully.
           </p>
+
+          <!-- Status Indicator -->
+          <div class="status-indicator success" id="status-indicator">
+            <span>✓ Completed</span>
+          </div>
+          <div class="status-value" id="status-value" style="color: var(--cg-success); font-weight: 600;">Completed</div>
+
+          <!-- Timeout Warning (hidden by default) -->
+          <div class="timeout-warning hidden" id="timeout-warning" style="background: var(--cg-warning-bg); color: var(--cg-warning); padding: 12px; border-radius: 8px; margin: 16px 0;">
+            <strong>⚠️ Payment Timeout</strong><br>
+            Your payment is taking longer than expected. Please check your email for confirmation.
+          </div>
+
+          <!-- Error Details (hidden by default) -->
+          <div class="error-details hidden" id="error-details" style="background: var(--cg-error-bg); color: var(--cg-error); padding: 12px; border-radius: 8px; margin: 16px 0;">
+            <strong>Error:</strong> <span id="error-message"></span>
+          </div>
 
           <!-- Order Details -->
           <div class="order-details">
@@ -57,13 +74,13 @@
               <span class="detail-value" id="plan-name">Loading...</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Status:</span>
-              <span class="detail-value" style="color: var(--cg-success); font-weight: 600;">Completed</span>
+              <span class="detail-label">Amount:</span>
+              <span class="detail-value" id="amount-value">Loading...</span>
             </div>
           </div>
 
           <!-- Action Buttons -->
-          <div class="action-buttons">
+          <div class="action-buttons" id="action-buttons">
             <a href="/payment" class="cg-button secondary">
               Back to Plans
             </a>
@@ -73,7 +90,7 @@
           </div>
 
           <!-- Additional Info -->
-          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;">
+          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;" id="additional-info">
             <p style="margin-bottom: 8px;">A confirmation email has been sent to your registered email address.</p>
             <p class="mb-0">If you have any questions, please contact our support team.</p>
           </div>

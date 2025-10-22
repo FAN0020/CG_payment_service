@@ -14,7 +14,7 @@ export class PaymentDatabase {
     // Enable WAL mode for better concurrency
     this.db.pragma('journal_mode = WAL')
 
-    // Create subscription_orders table
+    // Create subscription_orders table with proper column handling
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS subscription_orders (
         order_id TEXT PRIMARY KEY,
@@ -34,11 +34,41 @@ export class PaymentDatabase {
         updated_at INTEGER NOT NULL,
         expires_at INTEGER
       );
+    `)
 
+    // Add missing columns if they don't exist
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN request_id TEXT UNIQUE;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+    
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN ad_source TEXT;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+    
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN campaign_id TEXT;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+    
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN request_expires_at INTEGER;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // Create indexes
+    this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_orders_user_id ON subscription_orders(user_id);
       CREATE INDEX IF NOT EXISTS idx_orders_stripe_sub ON subscription_orders(stripe_subscription_id);
       CREATE INDEX IF NOT EXISTS idx_orders_status ON subscription_orders(status);
       CREATE INDEX IF NOT EXISTS idx_orders_stripe_session ON subscription_orders(stripe_session_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_request_id ON subscription_orders(request_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_request_expires ON subscription_orders(request_expires_at);
     `)
 
     // Create payment_events table for webhook idempotency
@@ -78,14 +108,6 @@ export class PaymentDatabase {
   createOrder(order: Omit<SubscriptionOrder, 'created_at' | 'updated_at'>): SubscriptionOrder {
     const now = Date.now()
     const fullOrder: SubscriptionOrder = {
-      // stripe_session_id: null,
-      // stripe_subscription_id: null,
-      // stripe_customer_id: null,
-      // stripe_customer_email: null,
-      // payment_method: null,
-      // platform: null,
-      // client_ref: null,
-      // expires_at: null,
       stripe_session_id: undefined,
       stripe_subscription_id: undefined,
       stripe_customer_id: undefined,
@@ -93,7 +115,11 @@ export class PaymentDatabase {
       payment_method: undefined,
       platform: undefined,
       client_ref: undefined,
+      request_id: undefined,
+      ad_source: undefined,
+      campaign_id: undefined,
       expires_at: undefined,
+      request_expires_at: undefined,
       ...order,
       created_at: now,
       updated_at: now
@@ -104,11 +130,13 @@ export class PaymentDatabase {
         INSERT INTO subscription_orders (
           order_id, user_id, stripe_session_id, stripe_subscription_id,
           stripe_customer_id, stripe_customer_email, status, plan, amount, currency,
-          payment_method, platform, client_ref, created_at, updated_at, expires_at
+          payment_method, platform, client_ref, request_id, ad_source, campaign_id,
+          created_at, updated_at, expires_at, request_expires_at
         ) VALUES (
           @order_id, @user_id, @stripe_session_id, @stripe_subscription_id,
           @stripe_customer_id, @stripe_customer_email, @status, @plan, @amount, @currency,
-          @payment_method, @platform, @client_ref, @created_at, @updated_at, @expires_at
+          @payment_method, @platform, @client_ref, @request_id, @ad_source, @campaign_id,
+          @created_at, @updated_at, @expires_at, @request_expires_at
         )
       `)
 
@@ -198,6 +226,25 @@ export class PaymentDatabase {
       return stmt.all(userId) as SubscriptionOrder[]
     } catch (error: any) {
       throw new DatabaseError(`Failed to get orders by user ID: ${error.message}`)
+    }
+  }
+
+  getOrderByRequestId(requestId: string): SubscriptionOrder | null {
+    try {
+      const stmt = this.db.prepare('SELECT * FROM subscription_orders WHERE request_id = ?')
+      return stmt.get(requestId) as SubscriptionOrder | undefined || null
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get order by request ID: ${error.message}`)
+    }
+  }
+
+  cleanExpiredRequestIds(): number {
+    try {
+      const stmt = this.db.prepare('DELETE FROM subscription_orders WHERE request_expires_at < ? AND request_expires_at IS NOT NULL')
+      const result = stmt.run(Date.now())
+      return result.changes
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to clean expired request IDs: ${error.message}`)
     }
   }
 

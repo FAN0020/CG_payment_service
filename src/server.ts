@@ -11,6 +11,8 @@ import { logger } from './lib/logger.js'
 import { initializeHandlers } from './handlers/index.js'
 import { registerPaymentRoutes } from './routes/payment.js'
 import { registerWebhookRoutes } from './routes/webhook.js'
+import { registerMainlineApiRoutes } from './routes/mainline-api.js'
+import { generateRequestId } from './lib/api-response.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -80,7 +82,8 @@ async function main() {
       logger: false, // Use our custom logger
       bodyLimit: 10485760, // 10MB
       requestIdLogLabel: 'requestId',
-      disableRequestLogging: true
+      disableRequestLogging: true,
+      genReqId: () => generateRequestId()
     })
 
     // Register CORS
@@ -140,6 +143,17 @@ async function main() {
 
     await registerWebhookRoutes(fastify, stripeManager, db, config.stripeWebhookSecret)
 
+    // Register mainline-facing API routes
+    await registerMainlineApiRoutes(fastify, jwtManager, stripeManager, db, {
+      priceId: config.stripePriceId,
+      planAmount: config.planAmount,
+      planCurrency: config.planCurrency,
+      successUrl: config.successUrl,
+      cancelUrl: config.cancelUrl,
+      baseUrl: config.baseUrl,
+      isProduction: !!config.isProduction
+    })
+
     logger.info('Routes registered')
 
     // Start server
@@ -149,9 +163,22 @@ async function main() {
     logger.info(`✅ Database: ${config.dbPath}`)
     logger.info(`✅ Registered handlers: ${(await import('./lib/handler-registry.js')).handlerRegistry.list().join(', ')}`)
 
+    // Start cleanup task for expired request IDs (every 5 minutes)
+    const cleanupInterval = setInterval(() => {
+      try {
+        const cleanedCount = db.cleanExpiredRequestIds()
+        if (cleanedCount > 0) {
+          logger.info(`Cleaned ${cleanedCount} expired request IDs`)
+        }
+      } catch (error: any) {
+        logger.error('Failed to clean expired request IDs', { error: error.message })
+      }
+    }, 5 * 60 * 1000) // 5 minutes
+
     // Graceful shutdown
     const shutdown = async () => {
       logger.info('Shutting down gracefully...')
+      clearInterval(cleanupInterval)
       await fastify.close()
       db.close()
       logger.info('Shutdown complete')

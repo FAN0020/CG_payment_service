@@ -20,65 +20,39 @@
  * 4. That's it! No code changes needed.
  */
 export const PRODUCT_CATALOG = {
-  'trial-plan': {
-    priceId: process.env.STRIPE_TRIAL_PRICE_ID || '',
-    amount: 1.00,
-    currency: 'USD',
-    durationDays: 2,
-    name: 'Trial Plan',
-    description: 'Perfect for trying out ClassGuru',
-    features: [
-      'Full platform access',
-      'AI-powered course summaries',
-      'Lecture transcription',
-      '48-hour trial period'
-    ]
-  },
   'monthly-plan': {
     priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
-    amount: 12.90,
+    amount: 9.90,
     currency: 'USD',
+    type: 'subscription', // Recurring subscription
     name: 'Monthly Plan',
     description: 'Best for regular users',
     features: [
-      'Everything in Trial',
+      'Everything in Test',
       'Unlimited course materials',
       'Advanced AI features',
       'Priority support',
       'Cancel anytime'
     ]
   },
-  // Example: Uncomment and configure these when needed
-  /*
-  'annual-plan': {
-    priceId: process.env.STRIPE_ANNUAL_PRICE_ID || '',
-    amount: 99.00,
+  'monthly-plan-pro': {
+    priceId: process.env.STRIPE_MONTHLY_PRO_PRICE_ID || '',
+    amount: 58.90,
     currency: 'USD',
-    name: 'Annual Plan',
-    description: 'Best value - save 36%',
+    type: 'subscription', // Recurring subscription
+    name: 'Monthly Pro Plan',
+    description: 'For power users and professionals',
     features: [
-      'Everything in Monthly',
-      '2 months free',
-      'Premium support',
-      'Early access to new features'
-    ]
-  },
-  
-  'premium-plan': {
-    priceId: process.env.STRIPE_PREMIUM_PRICE_ID || '',
-    amount: 19.90,
-    currency: 'USD',
-    name: 'Premium Plan',
-    description: 'For power users',
-    features: [
-      'Everything in Monthly',
-      'Unlimited AI queries',
+      'Everything in Monthly Plan',
+      'Advanced analytics dashboard',
       'Custom integrations',
+      'API access',
       'Dedicated support',
-      'API access'
+      'White-label options',
+      'Advanced reporting',
+      'Team collaboration tools'
     ]
   }
-  */
 }
 
 /**

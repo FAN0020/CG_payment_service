@@ -1,5 +1,6 @@
 import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
+import { logger } from '../lib/logger.js'
 import { createBillingOrderCreateHandler } from './create-order.js'
 import { createBillingSubscriptionUpdateHandler } from './update-subscription.js'
 import { createBillingSubscriptionQueryHandler } from './query-subscription.js'
@@ -14,5 +15,5 @@ export function initializeHandlers(db: PaymentDatabase): void {
   handlerRegistry.register('update-subscription', createBillingSubscriptionUpdateHandler(db))
   handlerRegistry.register('query-subscription', createBillingSubscriptionQueryHandler(db))
 
-  console.log(`[Handlers] Registered ${handlerRegistry.list().length} billing handlers:`, handlerRegistry.list())
+  logger.info(`Registered ${handlerRegistry.list().length} billing handlers:`, { handlers: handlerRegistry.list() })
 }

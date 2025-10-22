@@ -14,6 +14,8 @@ interface PaymentConfig {
   planCurrency: string
   successUrl: string
   cancelUrl: string
+  baseUrl: string
+  isProduction: boolean
 }
 
 /**
@@ -46,7 +48,6 @@ export async function registerPaymentRoutes(
         idempotency_key, 
         payment_gateway,
         product_id,
-        currency,
         payment_method,
         customer_email,
         platform,
@@ -59,23 +60,33 @@ export async function registerPaymentRoutes(
       
       // Business parameters come from request body (with defaults)
       const productId = product_id || 'monthly-plan'
-      const finalCurrency = currency || config.planCurrency
       const paymentMethod = payment_method
       const customerEmail = customer_email || payload.email  // Fallback to JWT email if provided
+
+      // ========== PRODUCT VALIDATION ==========
+      // Validate product exists and is configured
+      if (!validateProductId(productId)) {
+        throw new ValidationError(
+          `Invalid or unconfigured product: ${productId}. Please check your product configuration.`
+        )
+      }
+
+      // Get product configuration (centralized)
+      const productConfig = getProductConfig(productId)
 
       logger.info('Create subscription request', {
         requestId,
         userId,
         productId,
-        currency: finalCurrency,
+        currency: productConfig.currency,
         idempotencyKey: idempotency_key
       })
-      console.log('[DEBUG] Step 1: Starting idempotency check')
+      logger.debug('Starting idempotency check')
 
       // ========== IDEMPOTENCY CHECK ==========
       // Check if this request was already processed
       const existingOrderId = db.checkIdempotency(idempotency_key, userId)
-      console.log('[DEBUG] Step 2: Idempotency check complete, existingOrderId:', existingOrderId)
+      logger.debug('Idempotency check complete', { existingOrderId })
       if (existingOrderId) {
         const existingOrder = db.getOrderById(existingOrderId)
         logger.info('Idempotency check: returning existing order', {
@@ -97,39 +108,20 @@ export async function registerPaymentRoutes(
         })
       }
 
-      // ========== PRODUCT VALIDATION ==========
-      // Validate product exists and is configured
-      if (!validateProductId(productId)) {
-        throw new ValidationError(
-          `Invalid or unconfigured product: ${productId}. Please check your product configuration.`
-        )
-      }
-
-      // Get product configuration (centralized)
-      const productConfig = getProductConfig(productId)
-
-      // Validate currency matches product (or use product's default)
-      if (finalCurrency !== productConfig.currency) {
-        logger.warn('Currency mismatch, using product default', {
-          requested: finalCurrency,
-          productCurrency: productConfig.currency
-        })
-      }
-
       if (paymentMethod && !PAYMENT_WHITELISTS.PAYMENT_METHODS.includes(paymentMethod as any)) {
         throw new ValidationError(`Invalid payment_method: ${paymentMethod}. Allowed: ${PAYMENT_WHITELISTS.PAYMENT_METHODS.join(', ')}`)
       }
 
-      console.log('[DEBUG] Step 3: Creating order via internal handler')
+      logger.debug('Creating order via internal handler')
       // Step 1: Create order via internal handler
       const orderResult = await handlerRegistry.execute(
         'create-order',
         {
           userId,
           stripeCustomerEmail: customerEmail,  // From request body or JWT
-          plan: `${productId}_${productConfig.amount}_${finalCurrency}`,
+          plan: `${productId}_${productConfig.amount}_${productConfig.currency}`,
           amount: productConfig.amount,
-          currency: finalCurrency,
+          currency: productConfig.currency,
           paymentMethod,
           platform,
           clientRef: client_ref
@@ -142,11 +134,11 @@ export async function registerPaymentRoutes(
       }
 
       const orderId = orderResult.data.order_id
-      console.log('[DEBUG] Step 4: Order created, orderId:', orderId)
+      logger.debug('Order created', { orderId })
 
       // Record idempotency AFTER order creation
       db.recordIdempotency(idempotency_key, userId, orderId, 24)
-      console.log('[DEBUG] Step 5: Idempotency recorded, calling Stripe API...')
+      logger.debug('Idempotency recorded, calling Stripe API')
 
       // Step 2: Create Stripe checkout session
       const session = await stripeManager.createCheckoutSession({
@@ -154,10 +146,11 @@ export async function registerPaymentRoutes(
         orderId,
         priceId: productConfig.priceId,
         successUrl: config.successUrl,
-        cancelUrl: config.cancelUrl
+        cancelUrl: config.cancelUrl,
+        productType: productConfig.type as 'one-time' | 'subscription'
       })
 
-      console.log('[DEBUG] Step 6: Stripe session created, sessionId:', session.id)
+      logger.debug('Stripe session created', { sessionId: session.id })
 
       // Step 3: Update order with Stripe session ID
       await handlerRegistry.execute(
@@ -168,7 +161,7 @@ export async function registerPaymentRoutes(
         },
         userId
       )
-      console.log('[DEBUG] Step 7: Order updated with session ID')
+      logger.debug('Order updated with session ID')
 
       logger.info('Subscription creation successful', {
         requestId,
@@ -189,8 +182,7 @@ export async function registerPaymentRoutes(
       })
 
     } catch (error: any) {
-      console.log('[DEBUG] ERROR caught in create-subscription handler:', error.message)
-      console.log('[DEBUG] Error type:', error.constructor.name)
+      logger.error('Error in create-subscription handler', { error: error.message, errorType: error.constructor.name })
       logger.error('Create subscription failed', {
         requestId,
         error: error.message
@@ -319,14 +311,17 @@ export async function registerPaymentRoutes(
       let paymentStatus = 'pending'
       let error = null
 
-      if (order.status === 'completed') {
+      if (order.status === 'active') {
         paymentStatus = 'success'
-      } else if (order.status === 'failed') {
-        paymentStatus = 'failed'
-        error = order.error_message || 'Payment failed'
-      } else if (order.status === 'cancelled') {
+      } else if (order.status === 'canceled') {
         paymentStatus = 'cancelled'
         error = 'Payment was cancelled'
+      } else if (order.status === 'expired') {
+        paymentStatus = 'failed'
+        error = 'Payment expired'
+      } else if (order.status === 'incomplete') {
+        paymentStatus = 'failed'
+        error = 'Payment incomplete'
       } else if (order.status === 'pending') {
         paymentStatus = 'pending'
       }
@@ -382,6 +377,34 @@ export async function registerPaymentRoutes(
       status: 'healthy',
       service: 'payment',
       timestamp: Date.now()
+    })
+  })
+
+  /**
+   * GET /api/payment/config
+   * Get payment service configuration and URLs
+   */
+  fastify.get('/api/payment/config', async (request: FastifyRequest, reply: FastifyReply) => {
+    return reply.code(200).send({
+      status_code: 200,
+      message: 'Payment service configuration',
+      data: {
+        base_url: config.successUrl.replace('/payment/success', ''),
+        api_base_url: `${config.successUrl.replace('/payment/success', '')}/api/payment`,
+        endpoints: {
+          create_subscription: '/api/payment/create-subscription',
+          verify_subscription: '/api/payment/verify-subscription',
+          payment_status: '/api/payment/status/:sessionId',
+          health: '/api/payment/health',
+          config: '/api/payment/config'
+        },
+        urls: {
+          success: config.successUrl,
+          cancel: config.cancelUrl
+        },
+        environment: process.env.NODE_ENV || 'development',
+        is_production: process.env.NODE_ENV === 'production' || !!process.env.PRODUCTION_URL
+      }
     })
   })
 }

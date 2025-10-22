@@ -8,6 +8,7 @@ export interface CreateCheckoutSessionParams {
   priceId: string
   successUrl: string
   cancelUrl: string
+  productType?: 'one-time' | 'subscription'  // Product type to determine checkout mode
 }
 
 export interface StripeSubscriptionInfo {
@@ -36,14 +37,18 @@ export class StripeManager {
   }
 
   /**
-   * Create a Stripe Checkout Session for subscription
+   * Create a Stripe Checkout Session for subscription or one-time payment
    */
   async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
-    console.log('[STRIPE DEBUG] Starting createCheckoutSession, orderId:', params.orderId)
+    logger.debug('Starting createCheckoutSession', { orderId: params.orderId, productType: params.productType })
     try {
-      console.log('[STRIPE DEBUG] Creating session config...')
+      logger.debug('Creating session config')
+      
+      // Determine checkout mode based on product type
+      const mode = params.productType === 'one-time' ? 'payment' : 'subscription'
+      
       const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-        mode: 'subscription',
+        mode,
         line_items: [
           {
             price: params.priceId,
@@ -54,8 +59,12 @@ export class StripeManager {
         cancel_url: params.cancelUrl,
         metadata: {
           order_id: params.orderId
-        },
-        subscription_data: {
+        }
+      }
+
+      // Add subscription-specific data only for subscription mode
+      if (mode === 'subscription') {
+        sessionConfig.subscription_data = {
           metadata: {
             order_id: params.orderId
           }
@@ -67,9 +76,9 @@ export class StripeManager {
         sessionConfig.customer_email = params.customerEmail
       }
 
-      console.log('[STRIPE DEBUG] Calling Stripe API checkout.sessions.create()...')
+      logger.debug('Calling Stripe API checkout.sessions.create()')
       const session = await this.stripe.checkout.sessions.create(sessionConfig)
-      console.log('[STRIPE DEBUG] Stripe API call successful, sessionId:', session.id)
+      logger.debug('Stripe API call successful', { sessionId: session.id })
 
       logger.info('Stripe checkout session created', {
         sessionId: session.id,
@@ -79,13 +88,12 @@ export class StripeManager {
 
       return session
     } catch (error: any) {
-      console.log('[STRIPE DEBUG] ERROR in Stripe API call:', error.message)
-      console.log('[STRIPE DEBUG] Error type:', error.constructor.name)
+      logger.error('Stripe API call failed', { error: error.message, errorType: error.constructor.name })
       logger.error('Failed to create Stripe checkout session', {
         error: error.message,
         orderId: params.orderId
       })
-      console.log('[STRIPE DEBUG] Throwing CustomStripeError...')
+      logger.debug('Throwing CustomStripeError')
       throw new CustomStripeError(`Failed to create checkout session: ${error.message}`)
     }
   }

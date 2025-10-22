@@ -16,15 +16,7 @@ export async function registerWebhookRoutes(
   webhookSecret: string
 ): Promise<void> {
   
-  fastify.post('/webhooks/stripe', {
-    config: {
-      // Disable body parsing to get raw body for signature verification
-      rawBody: true
-    },
-    schema: {
-      body: false // Disable JSON schema validation for raw body
-    }
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/webhooks/stripe', async (request: FastifyRequest, reply: FastifyReply) => {
     const signature = request.headers['stripe-signature'] as string
 
     if (!signature) {
@@ -34,7 +26,7 @@ export async function registerWebhookRoutes(
 
     try {
       // Verify webhook signature
-      const rawBody = (request as any).rawBody || request.body
+      const rawBody = (request as any).rawBody
       logger.info('Webhook raw body type', { 
         rawBodyType: typeof rawBody,
         isBuffer: Buffer.isBuffer(rawBody),
@@ -100,7 +92,6 @@ async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, reque
       return await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, db, requestId)
 
     case 'invoice.payment_succeeded':
-    case 'invoice_payment.paid':
       return await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, db, requestId)
 
     case 'invoice.payment_failed':

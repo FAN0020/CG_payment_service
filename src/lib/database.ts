@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { SubscriptionOrder, PaymentEvent, DatabaseError } from '../types/index.js'
+import { logger } from './logger.js'
 
 export class PaymentDatabase {
   private db: Database.Database
@@ -67,7 +68,7 @@ export class PaymentDatabase {
       CREATE INDEX IF NOT EXISTS idx_idempotency_expires ON client_idempotency(expires_at);
     `)
 
-    console.log('[DB] Database initialized successfully')
+    logger.info('Database initialized successfully')
   }
 
   // ============================================================================

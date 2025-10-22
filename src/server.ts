@@ -32,6 +32,12 @@ function loadConfig() {
     }
   }
 
+  // Determine base URL based on environment
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.PRODUCTION_URL
+  const baseUrl = isProduction 
+    ? (process.env.PRODUCTION_URL || 'https://yp.test.classguruai.com')
+    : 'http://localhost:8790'
+
   return {
     port: parseInt(process.env.PORT || '8790', 10),
     dbPath: process.env.DB_PATH || './data/payment.db',
@@ -41,8 +47,10 @@ function loadConfig() {
     stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID!,
     planAmount: parseFloat(process.env.MONTHLY_PLAN_AMOUNT || '9.90'),
     planCurrency: process.env.MONTHLY_PLAN_CURRENCY || 'SGD',
-    successUrl: process.env.FRONTEND_SUCCESS_URL || 'http://localhost:8790/payment/result?success=true',
-    cancelUrl: process.env.FRONTEND_CANCEL_URL || 'http://localhost:8790/payment/result?cancelled=true'
+    successUrl: process.env.FRONTEND_SUCCESS_URL || `${baseUrl}/payment/success`,
+    cancelUrl: process.env.FRONTEND_CANCEL_URL || `${baseUrl}/payment/cancel`,
+    baseUrl,
+    isProduction
   }
 }
 
@@ -104,27 +112,15 @@ async function main() {
       return reply.sendFile('cancel.html')
     })
 
-    // Serve comprehensive result page (handles all scenarios)
-    fastify.get('/payment/result', async (request, reply) => {
-      return reply.sendFile('result.html')
-    })
-
     // Add raw body support for webhook signature verification
     fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
-      if (req.url === '/webhooks/stripe') {
-        // For webhooks, preserve the raw body and don't parse JSON
+      try {
+        const json = JSON.parse(body.toString())
         ;(req as any).rawBody = body
-        done(null, body)
-      } else {
-        // For other routes, parse as JSON
-        try {
-          const json = JSON.parse(body.toString())
-          ;(req as any).rawBody = body
-          done(null, json)
-        } catch (err: any) {
-          err.statusCode = 400
-          done(err, undefined)
-        }
+        done(null, json)
+      } catch (err: any) {
+        err.statusCode = 400
+        done(err, undefined)
       }
     })
 
@@ -134,7 +130,9 @@ async function main() {
       planAmount: config.planAmount,
       planCurrency: config.planCurrency,
       successUrl: config.successUrl,
-      cancelUrl: config.cancelUrl
+      cancelUrl: config.cancelUrl,
+      baseUrl: config.baseUrl,
+      isProduction: !!config.isProduction
     })
 
     await registerWebhookRoutes(fastify, stripeManager, db, config.stripeWebhookSecret)

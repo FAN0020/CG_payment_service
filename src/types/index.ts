@@ -87,8 +87,8 @@ export type JWTPayload = z.infer<typeof JWTPayloadSchema>
 // ============================================================================
 
 // Allowed values for validation
-const ALLOWED_PRODUCTS = ['trial-plan', 'monthly-plan', 'annual-plan', 'basic-plan', 'premium-plan'] as const
-const ALLOWED_CURRENCIES = ['SGD', 'USD', 'EUR', 'MYR'] as const
+const ALLOWED_PRODUCTS = ['test-plan', 'monthly-plan', 'monthly-plan-pro'] as const
+const ALLOWED_CURRENCIES = ['USD'] as const
 const ALLOWED_PAYMENT_METHODS = ['card', 'alipay', 'wechat', 'paynow', 'grabpay'] as const
 
 // Export allowed values for use in validation
@@ -111,7 +111,7 @@ export const CreateSubscriptionRequestSchema = z.object({
   
   // Business parameters (validated against whitelists)
   product_id: z.enum(ALLOWED_PRODUCTS).default('monthly-plan').optional(),
-  currency: z.enum(ALLOWED_CURRENCIES).default('SGD').optional(),
+  currency: z.enum(ALLOWED_CURRENCIES).default('USD').optional(),
   payment_method: z.enum(ALLOWED_PAYMENT_METHODS).optional(),
   
   // Gateway selection

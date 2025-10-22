@@ -115,8 +115,11 @@ async function main() {
     // Add raw body support for webhook signature verification
     fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
       try {
-        const json = JSON.parse(body.toString())
+        // Store raw body for webhook signature verification
         ;(req as any).rawBody = body
+        
+        // Parse JSON for normal request handling
+        const json = JSON.parse(body.toString())
         done(null, json)
       } catch (err: any) {
         err.statusCode = 400

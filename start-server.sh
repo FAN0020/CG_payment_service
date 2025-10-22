@@ -24,3 +24,4 @@ lsof -ti :8790 | xargs kill -9 2>/dev/null || echo "No existing server found"
 echo "🎯 Starting server on port 8790..."
 npx tsx src/server.ts
 
+

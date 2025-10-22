@@ -148,10 +148,14 @@ async function pollPaymentStatus(sessionId, orderId, planType) {
     });
     
     if (response.ok) {
-      const data = await response.json();
-      console.log('[POLL] Server response:', data);
+      const responseData = await response.json();
+      console.log('[POLL] Server response:', responseData);
       
-      if (data.status === 'completed' || data.status === 'success') {
+      // Extract data from the API response structure
+      const data = responseData.data || {};
+      const status = data.status;
+      
+      if (status === 'completed' || status === 'success') {
         clearPolling();
         handlePaymentResult(PAYMENT_STATES.SUCCESS, {
           orderId: data.order_id || orderId,
@@ -160,7 +164,7 @@ async function pollPaymentStatus(sessionId, orderId, planType) {
           amount: data.amount,
           currency: data.currency
         });
-      } else if (data.status === 'failed' || data.status === 'error') {
+      } else if (status === 'failed' || status === 'error') {
         clearPolling();
         handlePaymentResult(PAYMENT_STATES.FAILED, {
           orderId: data.order_id || orderId,

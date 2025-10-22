@@ -108,7 +108,7 @@ async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, reque
 
 /**
  * Handle checkout.session.completed
- * User completed checkout, subscription is created
+ * User completed checkout - handles both subscription and one-time payments
  */
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -116,24 +116,33 @@ async function handleCheckoutSessionCompleted(
   requestId: string
 ): Promise<string | null> {
   const orderId = session.metadata?.order_id
-  const subscriptionId = session.subscription as string
-  const customerId = session.customer as string
+  const subscriptionId = session.subscription as string | null
+  const customerId = session.customer as string | null
 
   if (!orderId) {
     logger.warn('Checkout session missing order_id in metadata', { requestId, sessionId: session.id })
     return null
   }
 
+  // Build update data - only include non-null values
+  const updateData: any = {
+    orderId,
+    stripeSessionId: session.id,
+    status: 'active'
+  }
+
+  // Only add subscription/customer IDs if they exist (for subscription payments)
+  if (subscriptionId) {
+    updateData.stripeSubscriptionId = subscriptionId
+  }
+  if (customerId) {
+    updateData.stripeCustomerId = customerId
+  }
+
   // Update order via plugin
   await handlerRegistry.execute(
     'update-subscription',
-    {
-      orderId,
-      stripeSessionId: session.id,
-      stripeSubscriptionId: subscriptionId,
-      stripeCustomerId: customerId,
-      status: 'active'
-    },
+    updateData,
     'system/stripe-webhook'
   )
 

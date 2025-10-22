@@ -555,8 +555,21 @@ export class PaymentDatabase {
    */
   cleanExpiredActivePayments(): number {
     try {
+      // Log active payments count before cleanup
+      const countBeforeStmt = this.db.prepare('SELECT COUNT(*) as count FROM active_payments')
+      const countBefore = countBeforeStmt.get() as { count: number }
+      
       const stmt = this.db.prepare('DELETE FROM active_payments WHERE expires_at < ?')
       const result = stmt.run(Date.now())
+      
+      // Log active payments count after cleanup
+      const countAfterStmt = this.db.prepare('SELECT COUNT(*) as count FROM active_payments')
+      const countAfter = countAfterStmt.get() as { count: number }
+      
+      if (result.changes > 0) {
+        console.log(`[payment-service] active_payments cleanup: removed ${result.changes} expired records (${countBefore.count} → ${countAfter.count})`)
+      }
+      
       return result.changes
     } catch (error: any) {
       throw new DatabaseError(`Failed to clean expired active payments: ${error.message}`)

@@ -18,7 +18,7 @@ import { createHash } from 'crypto'
 // Configuration
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8790'
 const PAYMENT_TIMEOUT_MS = parseInt(process.env.PAYMENT_TIMEOUT_MS || '60000') // Default 60 seconds
-const TEST_JWT = process.env.TEST_JWT || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItY29uY3VycmVudCIsImlzcyI6Im1haW5saW5lIiwiaWF0IjoxNzAzMTIzNDAwLCJleHAiOjE3MDMxMjM0NjAsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSJ9.test-signature'
+let TEST_JWT = process.env.TEST_JWT || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItY29uY3VycmVudCIsImlzcyI6Im1haW5saW5lIiwiaWF0IjoxNzAzMTIzNDAwLCJleHAiOjE3MDMxMjM0NjAsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSJ9.test-signature'
 
 // Test configuration
 const TEST_PRODUCT_ID = 'monthly-plan'
@@ -31,7 +31,7 @@ const TIMEOUT_TEST_WAIT_MS = PAYMENT_TIMEOUT_MS + 5000 // Wait timeout + 5 secon
 function generateExpectedIdempotencyKey(userId, productId, bucketMinutes = 1) {
   const bucket = Math.floor(Date.now() / (bucketMinutes * 60000))
   const keyData = `${userId}:${productId}:${bucket}`
-  return createHash('sha256').update(keyData).digest('hex').substring(0, 16)
+  return createHash('sha256').update(keyData).digest('hex') // Full SHA256 hash, not truncated
 }
 
 /**
@@ -61,7 +61,8 @@ async function makePaymentRequest(requestId, jwt, productId = TEST_PRODUCT_ID, d
 
   console.log(`[Request ${requestId}] Sending checkout request...`)
   console.log(`  Product ID: ${productId}`)
-  console.log(`  Expected Idempotency Key: ${generateExpectedIdempotencyKey(extractUserIdFromJWT(jwt), productId)}`)
+  const expectedKey = generateExpectedIdempotencyKey(extractUserIdFromJWT(jwt), productId)
+  console.log(`  Expected Idempotency Key: ${expectedKey.substring(0, 16)}...`)
   
   const startTime = Date.now()
   const response = await fetch(`${API_BASE_URL}/api/payment/create-subscription`, {
@@ -273,9 +274,9 @@ async function testIdempotencyKeyConsistency() {
   
   console.log('\n📊 Idempotency Key Test Results')
   console.log('===============================')
-  console.log(`Request 1 Key: ${result1.idempotencyKey || 'N/A'}`)
-  console.log(`Request 2 Key: ${result2.idempotencyKey || 'N/A'}`)
-  console.log(`Expected Key: ${expectedKey}`)
+  console.log(`Request 1 Key: ${result1.idempotencyKey ? result1.idempotencyKey.substring(0, 16) + '...' : 'N/A'}`)
+  console.log(`Request 2 Key: ${result2.idempotencyKey ? result2.idempotencyKey.substring(0, 16) + '...' : 'N/A'}`)
+  console.log(`Expected Key: ${expectedKey.substring(0, 16)}...`)
   
   const keysMatch = result1.idempotencyKey === result2.idempotencyKey
   const keyMatchesExpected = result1.idempotencyKey === expectedKey
@@ -470,6 +471,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   if (config.jwt !== TEST_JWT) {
     process.env.TEST_JWT = config.jwt
+    // Update the global TEST_JWT variable
+    TEST_JWT = config.jwt
   }
   if (config.productId !== TEST_PRODUCT_ID) {
     process.env.TEST_PRODUCT_ID = config.productId

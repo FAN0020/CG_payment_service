@@ -105,17 +105,17 @@ export async function registerPaymentRoutes(
       })
       logger.debug('Starting timeout-window and idempotency checks')
 
-      // ========== TIMEOUT-WINDOW ENFORCEMENT ==========
-      // Check if there's an active payment within the timeout window
-      const activePayment = db.findActivePayment(userId, productId)
-      if (activePayment && Date.now() - activePayment.created_at < timeoutMs) {
+      // ========== CONCURRENCY PROTECTION (OPTIMIZED ORDER) ==========
+      // First check if there's already an active payment - if so, return immediately
+      const existingActivePayment = db.findActivePayment(userId, productId)
+      if (existingActivePayment && Date.now() - existingActivePayment.created_at < timeoutMs) {
         logger.info('Active payment found within timeout window', {
           requestId,
           userId,
           productId,
           idempotencyKey: idempotency_key,
-          activePaymentIdempotencyKey: activePayment.idempotency_key,
-          timeRemaining: activePayment.expires_at - Date.now()
+          activePaymentIdempotencyKey: existingActivePayment.idempotency_key,
+          timeRemaining: existingActivePayment.expires_at - Date.now()
         })
         
         return reply.code(409).send({
@@ -124,8 +124,8 @@ export async function registerPaymentRoutes(
           request_id: requestId,
           data: {
             idempotency_key: idempotency_key,
-            session_url: activePayment.session_url,
-            retry_after: Math.ceil((activePayment.expires_at - Date.now()) / 1000) // seconds
+            session_url: existingActivePayment.session_url,
+            retry_after: Math.ceil((existingActivePayment.expires_at - Date.now()) / 1000) // seconds
           }
         })
       }
@@ -155,7 +155,7 @@ export async function registerPaymentRoutes(
         })
       }
 
-      // ========== CONCURRENCY PROTECTION ==========
+      // ========== RECORD ACTIVE PAYMENT ==========
       // Try to record active payment immediately - this will fail if one already exists
       let activePaymentRecorded = false
       try {

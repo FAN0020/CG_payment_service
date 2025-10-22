@@ -9,6 +9,7 @@ export interface CreateCheckoutSessionParams {
   successUrl: string
   cancelUrl: string
   productType?: 'one-time' | 'subscription'  // Product type to determine checkout mode
+  idempotencyKey?: string  // Idempotency key for Stripe API calls
 }
 
 export interface StripeSubscriptionInfo {
@@ -40,7 +41,11 @@ export class StripeManager {
    * Create a Stripe Checkout Session for subscription or one-time payment
    */
   async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<Stripe.Checkout.Session> {
-    logger.debug('Starting createCheckoutSession', { orderId: params.orderId, productType: params.productType })
+    logger.debug('Starting createCheckoutSession', { 
+      orderId: params.orderId, 
+      productType: params.productType,
+      idempotencyKey: params.idempotencyKey 
+    })
     try {
       logger.debug('Creating session config')
       
@@ -76,22 +81,47 @@ export class StripeManager {
         sessionConfig.customer_email = params.customerEmail
       }
 
-      logger.debug('Calling Stripe API checkout.sessions.create()')
-      const session = await this.stripe.checkout.sessions.create(sessionConfig)
+      // Prepare Stripe API options with idempotency key
+      const stripeOptions: Stripe.RequestOptions = {}
+      if (params.idempotencyKey) {
+        stripeOptions.idempotencyKey = params.idempotencyKey
+        logger.info('Using idempotency key for Stripe API call', {
+          idempotencyKey: params.idempotencyKey,
+          orderId: params.orderId
+        })
+      }
+
+      logger.debug('Calling Stripe API checkout.sessions.create()', {
+        hasIdempotencyKey: !!params.idempotencyKey
+      })
+      const session = await this.stripe.checkout.sessions.create(sessionConfig, stripeOptions)
       logger.debug('Stripe API call successful', { sessionId: session.id })
 
       logger.info('Stripe checkout session created', {
         sessionId: session.id,
         orderId: params.orderId,
+        idempotencyKey: params.idempotencyKey,
         hasEmail: !!params.customerEmail
       })
 
       return session
     } catch (error: any) {
+      // Handle Stripe idempotency errors gracefully
+      if (error.code === 'idempotency_key_in_use' || error.message.includes('Keys already used')) {
+        logger.info('Stripe idempotency key already used - this is expected for concurrent requests', {
+          idempotencyKey: params.idempotencyKey,
+          orderId: params.orderId,
+          error: error.message
+        })
+        // Re-throw as a more specific error that can be handled upstream
+        throw new CustomStripeError(`Idempotency key already used: ${error.message}`)
+      }
+      
       logger.error('Stripe API call failed', { error: error.message, errorType: error.constructor.name })
       logger.error('Failed to create Stripe checkout session', {
         error: error.message,
-        orderId: params.orderId
+        orderId: params.orderId,
+        idempotencyKey: params.idempotencyKey
       })
       logger.debug('Throwing CustomStripeError')
       throw new CustomStripeError(`Failed to create checkout session: ${error.message}`)

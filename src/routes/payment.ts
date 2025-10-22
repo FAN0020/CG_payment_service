@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import { CreateSubscriptionRequestSchema, VerifySubscriptionRequestSchema, ValidationError, PAYMENT_WHITELISTS } from '../types/index.js'
+import { CreateSubscriptionRequestSchema, VerifySubscriptionRequestSchema, ValidationError, PAYMENT_WHITELISTS, StripeError as CustomStripeError } from '../types/index.js'
 import { JWTManager } from '../lib/jwt.js'
 import { StripeManager } from '../lib/stripe.js'
 import { PaymentDatabase } from '../lib/database.js'
@@ -7,6 +7,7 @@ import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
 import { getProductConfig, validateProductId } from '../config/products.js'
+import { generateIdempotencyKey } from '../utils/hash.js'
 
 interface PaymentConfig {
   priceId: string
@@ -35,6 +36,12 @@ export async function registerPaymentRoutes(
    */
   fastify.post('/api/payment/create-subscription', async (request: FastifyRequest, reply: FastifyReply) => {
     const requestId = nanoid()
+    
+    // Declare variables in outer scope for error handling
+    let userId: string | undefined
+    let productId: string | undefined
+    let idempotency_key: string | undefined
+    let activePaymentRecorded: boolean = false
 
     try {
       // Validate request body
@@ -45,7 +52,7 @@ export async function registerPaymentRoutes(
 
       const { 
         jwt: token, 
-        idempotency_key, 
+        idempotency_key: clientIdempotencyKey, 
         payment_gateway,
         product_id,
         payment_method,
@@ -56,12 +63,17 @@ export async function registerPaymentRoutes(
 
       // Verify and decode JWT (authentication only)
       const payload = jwtManager.verify(token)
-      const userId = payload.sub
+      userId = payload.sub
       
       // Business parameters come from request body (with defaults)
-      const productId = product_id || 'monthly-plan'
+      productId = product_id || 'monthly-plan'
       const paymentMethod = payment_method
       const customerEmail = customer_email || payload.email  // Fallback to JWT email if provided
+
+      // Generate JWT-based idempotency key with fixed bucket size for consistency
+      const timeoutMs = parseInt(process.env.PAYMENT_TIMEOUT_MS || '60000') // Default 60 seconds
+      const bucketMinutes = Math.max(1, Math.floor(timeoutMs / 60000)) // At least 1 minute bucket
+      idempotency_key = generateIdempotencyKey(userId, productId, bucketMinutes)
 
       // ========== PRODUCT VALIDATION ==========
       // Validate product exists and is configured
@@ -81,7 +93,42 @@ export async function registerPaymentRoutes(
         currency: productConfig.currency,
         idempotencyKey: idempotency_key
       })
-      logger.debug('Starting idempotency check')
+      
+      // Log idempotency key details for diagnostics
+      logger.info('[payment-service] idempotencyKey=<key> user=<id> product=<id>', {
+        idempotencyKey: idempotency_key,
+        userId,
+        productId: productId,
+        requestId,
+        bucketMinutes,
+        timeoutMs
+      })
+      logger.debug('Starting timeout-window and idempotency checks')
+
+      // ========== TIMEOUT-WINDOW ENFORCEMENT ==========
+      // Check if there's an active payment within the timeout window
+      const activePayment = db.findActivePayment(userId, productId)
+      if (activePayment && Date.now() - activePayment.created_at < timeoutMs) {
+        logger.info('Active payment found within timeout window', {
+          requestId,
+          userId,
+          productId,
+          idempotencyKey: idempotency_key,
+          activePaymentIdempotencyKey: activePayment.idempotency_key,
+          timeRemaining: activePayment.expires_at - Date.now()
+        })
+        
+        return reply.code(409).send({
+          status_code: 409,
+          message: 'Payment already in progress.',
+          request_id: requestId,
+          data: {
+            idempotency_key: idempotency_key,
+            session_url: activePayment.session_url,
+            retry_after: Math.ceil((activePayment.expires_at - Date.now()) / 1000) // seconds
+          }
+        })
+      }
 
       // ========== IDEMPOTENCY CHECK ==========
       // Check if this request was already processed
@@ -106,6 +153,48 @@ export async function registerPaymentRoutes(
             status: existingOrder?.status
           }
         })
+      }
+
+      // ========== CONCURRENCY PROTECTION ==========
+      // Try to record active payment immediately - this will fail if one already exists
+      let activePaymentRecorded = false
+      try {
+        db.recordActivePayment(userId, productId, idempotency_key, null, timeoutMs)
+        activePaymentRecorded = true
+        logger.debug('Active payment record created - proceeding with checkout', { 
+          requestId, 
+          userId, 
+          productId, 
+          idempotencyKey: idempotency_key 
+        })
+      } catch (error: any) {
+        // If recording failed due to constraint violation, there's already an active payment
+        if (error.message.includes('Active payment already exists')) {
+          const existingActivePayment = db.findActivePayment(userId, productId)
+          if (existingActivePayment && Date.now() - existingActivePayment.created_at < timeoutMs) {
+            logger.info('Concurrent payment detected - returning existing session', {
+              requestId,
+              userId,
+              productId,
+              idempotencyKey: idempotency_key,
+              existingIdempotencyKey: existingActivePayment.idempotency_key,
+              timeRemaining: existingActivePayment.expires_at - Date.now()
+            })
+            
+            return reply.code(409).send({
+              status_code: 409,
+              message: 'Payment already in progress.',
+              request_id: requestId,
+              data: {
+                idempotency_key: idempotency_key,
+                session_url: existingActivePayment.session_url,
+                retry_after: Math.ceil((existingActivePayment.expires_at - Date.now()) / 1000) // seconds
+              }
+            })
+          }
+        }
+        // If it's not a constraint violation, re-throw the error
+        throw error
       }
 
       if (paymentMethod && !PAYMENT_WHITELISTS.PAYMENT_METHODS.includes(paymentMethod as any)) {
@@ -147,10 +236,20 @@ export async function registerPaymentRoutes(
         priceId: productConfig.priceId,
         successUrl: config.successUrl,
         cancelUrl: config.cancelUrl,
-        productType: productConfig.type as 'one-time' | 'subscription'
+        productType: productConfig.type as 'one-time' | 'subscription',
+        idempotencyKey: idempotency_key  // Pass the idempotency key to Stripe
       })
 
       logger.debug('Stripe session created', { sessionId: session.id })
+      
+      // Log session creation with idempotency details
+      logger.info('[payment-service] idempotencyKey=<key> user=<id> product=<id> session=<session_id>', {
+        idempotencyKey: idempotency_key,
+        userId,
+        productId: productId,
+        sessionId: session.id,
+        requestId
+      })
 
       // Step 3: Update order with Stripe session ID
       await handlerRegistry.execute(
@@ -163,6 +262,16 @@ export async function registerPaymentRoutes(
       )
       logger.debug('Order updated with session ID')
 
+      // Step 4: Update active payment record with actual session URL
+      if (activePaymentRecorded && session.url) {
+        const updated = db.updateActivePaymentSessionUrl(userId, productId, session.url)
+        if (updated) {
+          logger.debug('Active payment updated with session URL', { requestId, userId, productId })
+        } else {
+          logger.warn('Failed to update active payment with session URL', { requestId, userId, productId })
+        }
+      }
+
       logger.info('Subscription creation successful', {
         requestId,
         userId,
@@ -170,6 +279,21 @@ export async function registerPaymentRoutes(
         sessionId: session.id,
         productId
       })
+      
+      // Log idempotency verification success
+      logger.info('[payment-service] Idempotency check passed: session created successfully', {
+        idempotencyKey: idempotency_key,
+        userId,
+        productId: productId,
+        sessionId: session.id,
+        requestId
+      })
+
+      // Clean up active payment record on success (webhook will handle final cleanup)
+      if (activePaymentRecorded) {
+        // Keep the record for timeout window - webhook will clean it up
+        logger.debug('Active payment record maintained for timeout window', { requestId, userId, productId })
+      }
 
       return reply.code(200).send({
         status_code: 200,
@@ -182,7 +306,29 @@ export async function registerPaymentRoutes(
       })
 
     } catch (error: any) {
-      logger.error('Error in create-subscription handler', { error: error.message, errorType: error.constructor.name })
+      // Clean up active payment record on error
+      try {
+        if (userId && productId && activePaymentRecorded) {
+          db.removeActivePayment(userId, productId)
+          logger.debug('Active payment record removed on error', { requestId, userId, productId })
+        }
+      } catch (cleanupError: any) {
+        logger.warn('Failed to remove active payment record on error', { 
+          requestId, 
+          userId, 
+          productId, 
+          cleanupError: cleanupError.message 
+        })
+      }
+
+      logger.error('Error in create-subscription handler', { 
+        error: error.message, 
+        errorType: error.constructor.name,
+        requestId,
+        userId,
+        productId: productId,
+        idempotencyKey: idempotency_key
+      })
       logger.error('Create subscription failed', {
         requestId,
         error: error.message
@@ -192,6 +338,33 @@ export async function registerPaymentRoutes(
         return reply.code(400).send({
           status_code: 400,
           message: error.message
+        })
+      }
+
+      // Handle Stripe idempotency conflicts gracefully
+      if (error instanceof CustomStripeError && error.message.includes('Idempotency key already used')) {
+        logger.info('Idempotency conflict detected - returning 409 status', {
+          requestId,
+          userId,
+          idempotencyKey: idempotency_key,
+          error: error.message
+        })
+        
+        return reply.code(409).send({
+          status_code: 409,
+          message: 'Payment is already in progress. Please wait.',
+          request_id: requestId,
+          data: {
+            idempotency_key: idempotency_key,
+            retry_after: 5 // seconds
+          }
+        })
+      }
+
+      if (error instanceof CustomStripeError) {
+        return reply.code(500).send({
+          status_code: 500,
+          message: 'Payment service temporarily unavailable'
         })
       }
 

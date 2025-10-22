@@ -240,6 +240,35 @@ async function handlePayment(event) {
     console.log('[PAYMENT] Response Status:', response.status);
     console.log('[PAYMENT] Response Data:', JSON.stringify(data, null, 2));
     
+    // Handle 409 Conflict - Payment already in progress
+    if (response.status === 409) {
+      console.log('[CONFLICT] Payment already in progress');
+      console.log('  Message:', data.message);
+      console.log('  Retry After:', data.data?.retry_after, 'seconds');
+      console.log('  Session URL:', data.data?.session_url);
+      
+      // Show user-friendly message
+      const retryAfter = data.data?.retry_after || 5;
+      const sessionUrl = data.data?.session_url;
+      
+      if (sessionUrl) {
+        // If we have a session URL, redirect to it
+        console.log('[REDIRECT] Redirecting to existing checkout session...');
+        window.location.href = sessionUrl;
+        return;
+      } else {
+        // Show retry message
+        showError(planType, `Payment is already in progress. Please wait ${retryAfter} seconds before trying again.`);
+        
+        // Re-enable button after retry period
+        setTimeout(() => {
+          button.disabled = false;
+          button.innerHTML = originalText;
+        }, retryAfter * 1000);
+        return;
+      }
+    }
+    
     if (!response.ok) {
       throw new Error(data.message || 'Payment initiation failed');
     }

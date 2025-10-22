@@ -13,6 +13,7 @@ import {
 import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
 import { getProductConfig } from '../config/products.js'
+import { generateIdempotencyKey } from '../utils/hash.js'
 
 interface PaymentConfig {
   priceId: string
@@ -100,6 +101,19 @@ export async function registerMainlineApiRoutes(
         request_expires_at: requestExpiresAt
       })
 
+      // Generate JWT-based idempotency key with 1-minute buckets
+      const timeoutMs = parseInt(process.env.PAYMENT_TIMEOUT_MS || '60000') // Default 60 seconds
+      const bucketMinutes = Math.ceil(timeoutMs / 60000) // Convert to minutes, round up
+      const idempotencyKey = generateIdempotencyKey(userId, productConfig.type, bucketMinutes)
+      
+      logger.info('Creating Stripe checkout session', {
+        requestId,
+        userId,
+        orderId,
+        idempotencyKey,
+        productType: productConfig.type
+      })
+
       // Create Stripe checkout session
       const session = await stripeManager.createCheckoutSession({
         customerEmail: user.email, // Use email from JWT if available
@@ -107,7 +121,8 @@ export async function registerMainlineApiRoutes(
         priceId: productConfig.priceId,
         successUrl: config.successUrl,
         cancelUrl: config.cancelUrl,
-        productType: productConfig.type as 'one-time' | 'subscription'
+        productType: productConfig.type as 'one-time' | 'subscription',
+        idempotencyKey
       })
 
       // Update order with Stripe session ID

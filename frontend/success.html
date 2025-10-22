@@ -31,33 +31,16 @@
       <div class="result-container">
         <!-- Success Card -->
         <div class="cg-card text-center">
-          <!-- Result Icon -->
-          <div class="result-icon success" id="result-icon">
-            <span id="icon-text">✓</span>
+          <!-- Success Icon -->
+          <div class="result-icon success">
+            <span>✓</span>
           </div>
 
-          <!-- Result Title -->
-          <h1 class="result-title" id="result-title">Payment Successful!</h1>
-          <p class="result-message" id="result-message">
+          <!-- Success Message -->
+          <h1 class="result-title">Payment Successful!</h1>
+          <p class="result-message">
             Thank you for subscribing to ClassGuru. Your payment has been processed successfully.
           </p>
-
-          <!-- Status Indicator -->
-          <div class="status-indicator success" id="status-indicator">
-            <span>✓ Completed</span>
-          </div>
-          <div class="status-value" id="status-value" style="color: var(--cg-success); font-weight: 600;">Completed</div>
-
-          <!-- Timeout Warning (hidden by default) -->
-          <div class="timeout-warning hidden" id="timeout-warning" style="background: var(--cg-warning-bg); color: var(--cg-warning); padding: 12px; border-radius: 8px; margin: 16px 0;">
-            <strong>⚠️ Payment Timeout</strong><br>
-            Your payment is taking longer than expected. Please check your email for confirmation.
-          </div>
-
-          <!-- Error Details (hidden by default) -->
-          <div class="error-details hidden" id="error-details" style="background: var(--cg-error-bg); color: var(--cg-error); padding: 12px; border-radius: 8px; margin: 16px 0;">
-            <strong>Error:</strong> <span id="error-message"></span>
-          </div>
 
           <!-- Order Details -->
           <div class="order-details">
@@ -74,13 +57,13 @@
               <span class="detail-value" id="plan-name">Loading...</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">Amount:</span>
-              <span class="detail-value" id="amount-value">Loading...</span>
+              <span class="detail-label">Status:</span>
+              <span class="detail-value" style="color: var(--cg-success); font-weight: 600;">Completed</span>
             </div>
           </div>
 
           <!-- Action Buttons -->
-          <div class="action-buttons" id="action-buttons">
+          <div class="action-buttons">
             <a href="/payment" class="cg-button secondary">
               Back to Plans
             </a>
@@ -90,7 +73,7 @@
           </div>
 
           <!-- Additional Info -->
-          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;" id="additional-info">
+          <div class="mt-32 text-center" style="color: var(--cg-muted); font-size: 0.9rem;">
             <p style="margin-bottom: 8px;">A confirmation email has been sent to your registered email address.</p>
             <p class="mb-0">If you have any questions, please contact our support team.</p>
           </div>
@@ -104,6 +87,87 @@
     </footer>
   </div>
 
-  <script src="result.js"></script>
+  <script>
+    // Simple script to load order information for success page
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('[SUCCESS] Loading order information...');
+      
+      // Get URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionIdFromUrl = urlParams.get('session_id');
+      
+      // Get stored order information
+      const orderId = localStorage.getItem('cg_last_order_id');
+      const sessionId = localStorage.getItem('cg_last_session_id') || sessionIdFromUrl;
+      const planType = localStorage.getItem('cg_last_plan_type');
+      
+      console.log('[SUCCESS] Order data:', { orderId, sessionId, planType });
+      
+      // Try to fetch order details from server
+      if (sessionId) {
+        try {
+          const response = await fetch(`http://localhost:8790/api/payment/status/${sessionId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log('[SUCCESS] Server response:', responseData);
+            
+            const data = responseData.data || {};
+            
+            // Update order details
+            document.getElementById('order-id').textContent = data.order_id || orderId || 'Not available';
+            document.getElementById('session-id').textContent = data.session_id || sessionId || 'Not available';
+            
+            // Format plan name
+            let planDisplayName = 'Unknown Plan';
+            if (data.plan) {
+              if (data.plan.includes('monthly-plan-pro')) {
+                planDisplayName = 'Monthly Pro Plan';
+              } else if (data.plan.includes('monthly-plan')) {
+                planDisplayName = 'Monthly Plan';
+              } else if (data.plan.includes('test-plan')) {
+                planDisplayName = 'Test Plan';
+              } else {
+                planDisplayName = data.plan;
+              }
+            } else if (planType) {
+              planDisplayName = planType;
+            }
+            document.getElementById('plan-name').textContent = planDisplayName;
+            
+            console.log('[SUCCESS] Order details updated successfully');
+          } else {
+            console.warn('[SUCCESS] Failed to fetch order details from server');
+            // Fallback to stored data
+            document.getElementById('order-id').textContent = orderId || 'Not available';
+            document.getElementById('session-id').textContent = sessionId || 'Not available';
+            document.getElementById('plan-name').textContent = planType || 'Unknown Plan';
+          }
+        } catch (error) {
+          console.error('[SUCCESS] Error fetching order details:', error);
+          // Fallback to stored data
+          document.getElementById('order-id').textContent = orderId || 'Not available';
+          document.getElementById('session-id').textContent = sessionId || 'Not available';
+          document.getElementById('plan-name').textContent = planType || 'Unknown Plan';
+        }
+      } else {
+        // No session ID, use stored data
+        document.getElementById('order-id').textContent = orderId || 'Not available';
+        document.getElementById('session-id').textContent = 'Not available';
+        document.getElementById('plan-name').textContent = planType || 'Unknown Plan';
+      }
+      
+      // Clear stored data after displaying
+      localStorage.removeItem('cg_last_order_id');
+      localStorage.removeItem('cg_last_session_id');
+      localStorage.removeItem('cg_last_plan_type');
+      console.log('[SUCCESS] Cleared stored payment data');
+    });
+  </script>
 </body>
 </html>

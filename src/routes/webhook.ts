@@ -51,7 +51,7 @@ export async function registerWebhookRoutes(
       }
 
       // Handle different event types
-      const orderId = await handleStripeEvent(event, db, requestId)
+      const orderId = await handleStripeEvent(event, db, stripeManager, requestId)
 
       // Record event as processed
       db.recordEvent({
@@ -79,10 +79,10 @@ export async function registerWebhookRoutes(
 /**
  * Handle different Stripe event types
  */
-async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, requestId: string): Promise<string | null> {
+async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, stripeManager: StripeManager, requestId: string): Promise<string | null> {
   switch (event.type) {
     case 'checkout.session.completed':
-      return await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, db, requestId)
+      return await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, db, stripeManager, requestId)
 
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
@@ -113,6 +113,7 @@ async function handleStripeEvent(event: Stripe.Event, db: PaymentDatabase, reque
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
   db: PaymentDatabase,
+  stripeManager: StripeManager,
   requestId: string
 ): Promise<string | null> {
   const orderId = session.metadata?.order_id
@@ -137,7 +138,7 @@ async function handleCheckoutSessionCompleted(
     
     // For subscription payments, try to fetch subscription details to get expiration
     try {
-      const stripe = stripeManager.getStripe()
+      const stripe = stripeManager.getInstance()
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
       
       
@@ -155,7 +156,7 @@ async function handleCheckoutSessionCompleted(
       if (expiresAt) {
         updateData.expiresAt = expiresAt
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.warn('Failed to fetch subscription details for checkout session', {
         requestId,
         orderId,
@@ -174,6 +175,42 @@ async function handleCheckoutSessionCompleted(
     updateData,
     'system/stripe-webhook'
   )
+
+  // Get order details to extract user and product info for cleanup
+  const order = db.getOrderById(orderId)
+  if (order) {
+    // Extract product ID from plan (format: productId_amount_currency)
+    const productId = order.plan.split('_')[0]
+    
+    // Clean up active payment and concurrency locks for this user/product
+    try {
+      // Remove active payment record (payment completed successfully)
+      const removed = db.removeActivePayment(order.user_id, productId)
+      if (removed) {
+        logger.debug('Removed active payment after successful completion', {
+          requestId,
+          orderId,
+          userId: order.user_id,
+          productId
+        })
+      }
+      
+      // Clean up any remaining concurrency locks
+      db.cleanExpiredLocks()
+      logger.debug('Cleaned expired locks after successful payment', {
+        requestId,
+        orderId,
+        userId: order.user_id,
+        productId
+      })
+    } catch (error: any) {
+      logger.warn('Failed to clean locks/active payments after payment', {
+        requestId,
+        orderId,
+        error: error.message
+      })
+    }
+  }
 
   logger.info('Checkout session completed, order activated', {
     requestId,

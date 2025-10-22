@@ -98,6 +98,37 @@ export class PaymentDatabase {
       CREATE INDEX IF NOT EXISTS idx_idempotency_expires ON client_idempotency(expires_at);
     `)
 
+    // Create concurrency_locks table for lightweight locking
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS concurrency_locks (
+        lock_key TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        request_id TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_locks_user_product ON concurrency_locks(user_id, product_id);
+      CREATE INDEX IF NOT EXISTS idx_locks_expires ON concurrency_locks(expires_at);
+    `)
+
+    // Create active_payments table for timeout-window enforcement
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS active_payments (
+        user_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL,
+        session_url TEXT,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, product_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_active_payments_expires ON active_payments(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_active_payments_user_product ON active_payments(user_id, product_id);
+    `)
+
     logger.info('Database initialized successfully')
   }
 
@@ -328,6 +359,207 @@ export class PaymentDatabase {
       return result.changes
     } catch (error: any) {
       throw new DatabaseError(`Failed to clean expired idempotency records: ${error.message}`)
+    }
+  }
+
+  // ============================================================================
+  // Concurrency Lock Methods (Prevent concurrent checkout for same user/product)
+  // ============================================================================
+
+  /**
+   * Try to acquire a concurrency lock for a user/product combination
+   * Returns true if lock was acquired, false if already locked
+   */
+  tryAcquireLock(userId: string, productId: string, requestId: string, ttlSeconds: number = 10): boolean {
+    const now = Date.now()
+    const expiresAt = now + (ttlSeconds * 1000)
+    const lockKey = `lock:user:${userId}:product:${productId}`
+
+    try {
+      // Clean expired locks first
+      this.cleanExpiredLocks()
+
+      // Try to insert new lock
+      const stmt = this.db.prepare(`
+        INSERT INTO concurrency_locks (lock_key, user_id, product_id, created_at, expires_at, request_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      
+      stmt.run(lockKey, userId, productId, now, expiresAt, requestId)
+      return true
+    } catch (error: any) {
+      // If unique constraint failed, lock already exists
+      if (error.message.includes('UNIQUE constraint failed')) {
+        return false
+      }
+      throw new DatabaseError(`Failed to acquire lock: ${error.message}`)
+    }
+  }
+
+  /**
+   * Release a concurrency lock
+   */
+  releaseLock(userId: string, productId: string, requestId: string): boolean {
+    const lockKey = `lock:user:${userId}:product:${productId}`
+
+    try {
+      const stmt = this.db.prepare(`
+        DELETE FROM concurrency_locks 
+        WHERE lock_key = ? AND request_id = ?
+      `)
+      
+      const result = stmt.run(lockKey, requestId)
+      return result.changes > 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to release lock: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check if a lock exists for user/product combination
+   */
+  hasActiveLock(userId: string, productId: string): boolean {
+    const lockKey = `lock:user:${userId}:product:${productId}`
+
+    try {
+      const stmt = this.db.prepare(`
+        SELECT 1 FROM concurrency_locks 
+        WHERE lock_key = ? AND expires_at > ?
+      `)
+      
+      return stmt.get(lockKey, Date.now()) !== undefined
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to check lock: ${error.message}`)
+    }
+  }
+
+  /**
+   * Clean expired locks
+   */
+  cleanExpiredLocks(): number {
+    try {
+      const stmt = this.db.prepare('DELETE FROM concurrency_locks WHERE expires_at < ?')
+      const result = stmt.run(Date.now())
+      return result.changes
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to clean expired locks: ${error.message}`)
+    }
+  }
+
+  // ============================================================================
+  // Active Payment Methods (Timeout-window enforcement)
+  // ============================================================================
+
+  /**
+   * Find active payment for user/product combination
+   */
+  findActivePayment(userId: string, productId: string): { 
+    idempotency_key: string, 
+    session_url: string | null, 
+    created_at: number, 
+    expires_at: number 
+  } | null {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT idempotency_key, session_url, created_at, expires_at 
+        FROM active_payments 
+        WHERE user_id = ? AND product_id = ? AND expires_at > ?
+      `)
+      const result = stmt.get(userId, productId, Date.now()) as {
+        idempotency_key: string,
+        session_url: string | null,
+        created_at: number,
+        expires_at: number
+      } | undefined
+      
+      return result || null
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to find active payment: ${error.message}`)
+    }
+  }
+
+  /**
+   * Record active payment - throws error if already exists (for concurrency control)
+   */
+  recordActivePayment(
+    userId: string, 
+    productId: string, 
+    idempotencyKey: string, 
+    sessionUrl: string | null,
+    timeoutMs: number = 60000
+  ): void {
+    const now = Date.now()
+    const expiresAt = now + timeoutMs
+
+    try {
+      // Clean expired records first
+      this.cleanExpiredActivePayments()
+      
+      const stmt = this.db.prepare(`
+        INSERT INTO active_payments 
+        (user_id, product_id, idempotency_key, session_url, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      
+      stmt.run(userId, productId, idempotencyKey, sessionUrl, now, expiresAt)
+    } catch (error: any) {
+      // If unique constraint failed, that means there's already an active payment
+      if (error.message.includes('UNIQUE constraint failed') || error.message.includes('PRIMARY KEY constraint failed')) {
+        throw new DatabaseError(`Active payment already exists for user ${userId} and product ${productId}`)
+      }
+      throw new DatabaseError(`Failed to record active payment: ${error.message}`)
+    }
+  }
+
+  /**
+   * Update active payment session URL (after Stripe session creation)
+   */
+  updateActivePaymentSessionUrl(
+    userId: string, 
+    productId: string, 
+    sessionUrl: string
+  ): boolean {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE active_payments 
+        SET session_url = ?
+        WHERE user_id = ? AND product_id = ? AND expires_at > ?
+      `)
+      
+      const result = stmt.run(sessionUrl, userId, productId, Date.now())
+      return result.changes > 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to update active payment session URL: ${error.message}`)
+    }
+  }
+
+  /**
+   * Remove active payment (mark as inactive)
+   */
+  removeActivePayment(userId: string, productId: string): boolean {
+    try {
+      const stmt = this.db.prepare(`
+        DELETE FROM active_payments 
+        WHERE user_id = ? AND product_id = ?
+      `)
+      
+      const result = stmt.run(userId, productId)
+      return result.changes > 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to remove active payment: ${error.message}`)
+    }
+  }
+
+  /**
+   * Clean expired active payments
+   */
+  cleanExpiredActivePayments(): number {
+    try {
+      const stmt = this.db.prepare('DELETE FROM active_payments WHERE expires_at < ?')
+      const result = stmt.run(Date.now())
+      return result.changes
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to clean expired active payments: ${error.message}`)
     }
   }
 

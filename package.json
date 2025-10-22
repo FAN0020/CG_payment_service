@@ -27,6 +27,7 @@
     "fastify": "^4.26.2",
     "jsonwebtoken": "^9.0.2",
     "nanoid": "^5.1.6",
+    "node-fetch": "^3.3.2",
     "stripe": "^14.21.0",
     "zod": "^3.22.4"
   },

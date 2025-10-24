@@ -8,6 +8,7 @@ import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
 import { getProductConfig, validateProductId } from '../config/products.js'
 import { generateIdempotencyKey } from '../utils/hash.js'
+import Stripe from 'stripe'
 
 interface PaymentConfig {
   priceId: string
@@ -29,6 +30,97 @@ export async function registerPaymentRoutes(
   db: PaymentDatabase,
   config: PaymentConfig
 ): Promise<void> {
+
+  /**
+   * GET /api/pricing/current
+   * Fetch current prices from Stripe for all plans
+   */
+  fastify.get('/api/pricing/current', async (request: FastifyRequest, reply: FastifyReply) => {
+    const requestId = nanoid()
+    
+    try {
+      logger.info('[pricing-api] Fetching current prices from Stripe', { requestId })
+      
+      // Get Stripe instance to fetch prices
+      const stripe = stripeManager.getInstance()
+      
+      // Fetch all active prices and expand product details
+      const prices = await stripe.prices.list({
+        active: true,
+        expand: ['data.product']
+      })
+      
+      logger.debug('[pricing-api] Retrieved prices from Stripe', { 
+        count: prices.data.length,
+        requestId 
+      })
+      
+      // Map price IDs to plan names
+      const priceIdMap = {
+        [process.env.STRIPE_DAILY_PRICE_ID || '']: 'daily-plan',
+        [process.env.STRIPE_WEEKLY_PRICE_ID || '']: 'weekly-plan',
+        [process.env.STRIPE_MONTHLY_PRICE_ID || '']: 'monthly-plan'
+      }
+      
+      // Build response with current prices
+      const pricingData: Record<string, any> = {}
+      
+      for (const [priceId, planName] of Object.entries(priceIdMap)) {
+        if (!priceId) continue
+        
+        const price = prices.data.find(p => p.id === priceId)
+        if (price) {
+          const product = price.product as Stripe.Product
+          pricingData[planName] = {
+            priceId: price.id,
+            amount: price.unit_amount ? (price.unit_amount / 100) : 0,
+            currency: price.currency.toUpperCase(),
+            interval: price.recurring?.interval || 'one-time',
+            intervalCount: price.recurring?.interval_count || 1,
+            productName: product.name,
+            productDescription: product.description,
+            active: price.active
+          }
+          
+          logger.debug('[pricing-api] Found price for plan', {
+            plan: planName,
+            amount: pricingData[planName].amount,
+            currency: pricingData[planName].currency,
+            requestId
+          })
+        } else {
+          logger.warn('[pricing-api] Price not found for plan', {
+            plan: planName,
+            priceId,
+            requestId
+          })
+        }
+      }
+      
+      logger.info('[pricing-api] Successfully fetched pricing data', {
+        plansFound: Object.keys(pricingData).length,
+        requestId
+      })
+      
+      return reply.send({
+        success: true,
+        data: pricingData,
+        timestamp: new Date().toISOString()
+      })
+      
+    } catch (error: any) {
+      logger.error('[pricing-api] Failed to fetch pricing data', {
+        error: error.message,
+        requestId
+      })
+      
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to fetch current pricing',
+        error: error.message
+      })
+    }
+  })
 
   /**
    * POST /api/payment/create-subscription
@@ -208,8 +300,8 @@ export async function registerPaymentRoutes(
         {
           userId,
           stripeCustomerEmail: customerEmail,  // From request body or JWT
-          plan: `${productId}_${productConfig.amount}_${productConfig.currency}`,
-          amount: productConfig.amount,
+          plan: `${productId}_${productConfig.currency}`,
+          amount: 0, // Amount will be fetched from Stripe via price ID
           currency: productConfig.currency,
           paymentMethod,
           platform,

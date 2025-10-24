@@ -22,7 +22,6 @@
 export const PRODUCT_CATALOG = {
   'daily-plan': {
     priceId: process.env.STRIPE_DAILY_PRICE_ID || '',
-    amount: 1.99,
     currency: 'SGD',
     type: 'subscription', // Recurring subscription
     name: 'Daily Plan',
@@ -37,7 +36,6 @@ export const PRODUCT_CATALOG = {
   },
   'weekly-plan': {
     priceId: process.env.STRIPE_WEEKLY_PRICE_ID || '',
-    amount: 9.90,
     currency: 'SGD',
     type: 'subscription', // Recurring subscription
     name: 'Weekly Plan',
@@ -53,7 +51,6 @@ export const PRODUCT_CATALOG = {
   },
   'monthly-plan': {
     priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
-    amount: 14.90,
     currency: 'SGD',
     type: 'subscription', // Recurring subscription
     name: 'Monthly Plan',

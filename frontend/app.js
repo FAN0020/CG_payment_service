@@ -6,13 +6,108 @@
 // Configuration
 const API_BASE_URL = window.location.origin;
 const PAYMENT_ENDPOINT = `${API_BASE_URL}/api/payment/create-subscription`;
+const PRICING_ENDPOINT = `${API_BASE_URL}/api/pricing/current`;
 
 console.log('='.repeat(80));
 console.log('ClassGuru Payment Demo - Frontend Initialized');
 console.log('='.repeat(80));
 console.log('API Base URL:', API_BASE_URL);
 console.log('Payment Endpoint:', PAYMENT_ENDPOINT);
+console.log('Pricing Endpoint:', PRICING_ENDPOINT);
 console.log('='.repeat(80));
+
+// Load current prices from API
+async function loadCurrentPrices() {
+  try {
+    console.log('[PRICING] Loading current prices from API...');
+    
+    const response = await fetch(PRICING_ENDPOINT);
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to load pricing data');
+    }
+    
+    const pricingData = result.data;
+    console.log('[PRICING] Received pricing data:', pricingData);
+    
+    // Update each plan with current pricing
+    Object.entries(pricingData).forEach(([planKey, planData]) => {
+      updatePlanPricing(planKey, planData);
+    });
+    
+    console.log('[PRICING] Successfully updated all plan pricing');
+    
+  } catch (error) {
+    console.error('[PRICING] Failed to load current prices:', error);
+    
+    // Show error message to user
+    const errorContainer = document.createElement('div');
+    errorContainer.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff4444;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 10000;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    errorContainer.textContent = 'Failed to load current prices. Using default values.';
+    document.body.appendChild(errorContainer);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (errorContainer.parentNode) {
+        errorContainer.parentNode.removeChild(errorContainer);
+      }
+    }, 5000);
+  }
+}
+
+// Update plan pricing in the UI
+function updatePlanPricing(planKey, planData) {
+  const planElement = document.querySelector(`[data-plan="${planKey}"]`)?.closest('.pricing-card');
+  if (!planElement) {
+    console.warn(`[PRICING] Plan element not found for: ${planKey}`);
+    return;
+  }
+  
+  // Update price amount
+  const priceAmountElement = planElement.querySelector('.price-amount');
+  if (priceAmountElement) {
+    priceAmountElement.textContent = planData.amount.toFixed(2);
+    console.log(`[PRICING] Updated ${planKey} amount to: ${planData.amount}`);
+  }
+  
+  // Update currency
+  const priceCurrencyElement = planElement.querySelector('.price-currency');
+  if (priceCurrencyElement) {
+    priceCurrencyElement.textContent = planData.currency === 'SGD' ? 'S$' : planData.currency;
+  }
+  
+  // Update button data-amount attribute
+  const buttonElement = planElement.querySelector('.cg-button[data-plan]');
+  if (buttonElement) {
+    buttonElement.setAttribute('data-amount', planData.amount.toString());
+    buttonElement.setAttribute('data-currency', planData.currency);
+    console.log(`[PRICING] Updated ${planKey} button data-amount to: ${planData.amount}`);
+  }
+  
+  // Update billing period text
+  const periodElement = planElement.querySelector('.price-period');
+  if (periodElement && planData.interval) {
+    const intervalText = planData.interval === 'day' ? 'day' : 
+                        planData.interval === 'week' ? 'week' : 
+                        planData.interval === 'month' ? 'month' : 
+                        planData.interval;
+    periodElement.textContent = `Billed ${intervalText}ly`;
+  }
+  
+  console.log(`[PRICING] Successfully updated ${planKey} pricing`);
+}
 
 // Utility function to generate UUID v4
 function generateUUID() {
@@ -331,8 +426,11 @@ function updateJWTStatus() {
 }
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('[INIT] DOM Content Loaded');
+  
+  // Load current prices from API
+  await loadCurrentPrices();
   
   // Update JWT status
   updateJWTStatus();

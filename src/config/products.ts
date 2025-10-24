@@ -20,37 +20,54 @@
  * 4. That's it! No code changes needed.
  */
 export const PRODUCT_CATALOG = {
-  'monthly-plan': {
-    priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
-    amount: 9.90,
-    currency: 'USD',
+  'daily-plan': {
+    priceId: process.env.STRIPE_DAILY_PRICE_ID || '',
+    amount: 1.99,
+    currency: 'SGD',
     type: 'subscription', // Recurring subscription
-    name: 'Monthly Plan',
+    name: 'Daily Plan',
+    description: 'Perfect for trying out',
+    features: [
+      'Basic AI features',
+      'Limited course materials',
+      'Email support',
+      'Perfect for trying out',
+      '24-hour access'
+    ]
+  },
+  'weekly-plan': {
+    priceId: process.env.STRIPE_WEEKLY_PRICE_ID || '',
+    amount: 9.90,
+    currency: 'SGD',
+    type: 'subscription', // Recurring subscription
+    name: 'Weekly Plan',
     description: 'Best for regular users',
     features: [
-      'Everything in Test',
+      'Everything in Daily Plan',
       'Unlimited course materials',
       'Advanced AI features',
       'Priority support',
-      'Cancel anytime'
+      'Study analytics dashboard',
+      '7-day access'
     ]
   },
-  'monthly-plan-pro': {
-    priceId: process.env.STRIPE_MONTHLY_PRO_PRICE_ID || '',
-    amount: 58.90,
-    currency: 'USD',
+  'monthly-plan': {
+    priceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
+    amount: 14.90,
+    currency: 'SGD',
     type: 'subscription', // Recurring subscription
-    name: 'Monthly Pro Plan',
+    name: 'Monthly Plan',
     description: 'For power users and professionals',
     features: [
-      'Everything in Monthly Plan',
+      'Everything in Weekly Plan',
       'Advanced analytics dashboard',
       'Custom integrations',
       'API access',
       'Dedicated support',
       'White-label options',
       'Advanced reporting',
-      'Team collaboration tools'
+      'Team collaboration tools',
+      '30-day access'
     ]
   }
 }

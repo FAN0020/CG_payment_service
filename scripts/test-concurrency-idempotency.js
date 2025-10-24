@@ -23,7 +23,7 @@ const PAYMENT_TIMEOUT_MS = parseInt(process.env.PAYMENT_TIMEOUT_MS || '60000') /
 
 // Test configuration
 const TEST_USER_ID = 'test-user-concurrent'
-const TEST_PRODUCT_ID = 'monthly-plan'
+const TEST_PRODUCT_ID = 'weekly-plan'
 const CONCURRENT_REQUESTS = 3
 const REQUEST_DELAY_MS = 100 // Small delay between concurrent requests
 

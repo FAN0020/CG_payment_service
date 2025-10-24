@@ -66,7 +66,7 @@ export async function registerPaymentRoutes(
       userId = payload.sub
       
       // Business parameters come from request body (with defaults)
-      productId = product_id || 'monthly-plan'
+      productId = product_id || 'weekly-plan'
       const paymentMethod = payment_method
       const customerEmail = customer_email || payload.email  // Fallback to JWT email if provided
 

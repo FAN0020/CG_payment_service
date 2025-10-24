@@ -25,6 +25,8 @@ function loadConfig() {
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
     'JWT_SECRET',
+    'STRIPE_DAILY_PRICE_ID',
+    'STRIPE_WEEKLY_PRICE_ID',
     'STRIPE_MONTHLY_PRICE_ID'
   ]
 
@@ -46,9 +48,9 @@ function loadConfig() {
     stripeSecretKey: process.env.STRIPE_SECRET_KEY!,
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
     jwtSecret: process.env.JWT_SECRET!,
-    stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID!,
-    planAmount: parseFloat(process.env.MONTHLY_PLAN_AMOUNT || '9.90'),
-    planCurrency: process.env.MONTHLY_PLAN_CURRENCY || 'SGD',
+    stripePriceId: process.env.STRIPE_WEEKLY_PRICE_ID!,
+    planAmount: parseFloat(process.env.WEEKLY_PLAN_AMOUNT || '9.90'),
+    planCurrency: process.env.PLAN_CURRENCY || 'SGD',
     successUrl: process.env.FRONTEND_SUCCESS_URL || `${baseUrl}/payment/success`,
     cancelUrl: process.env.FRONTEND_CANCEL_URL || `${baseUrl}/payment/cancel`,
     baseUrl,

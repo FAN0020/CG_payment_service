@@ -103,9 +103,9 @@ npm run kill-server   # Kill existing server
 
 ## 💳 Payment Plans
 
-- **Test Plan**: $1 USD for 2-day access
-- **Monthly Plan**: $9.90 USD/month recurring
-- **Monthly Pro Plan**: $58.90 USD/month recurring
+- **Daily Plan**: S$1.99 SGD/day recurring
+- **Weekly Plan**: S$9.90 SGD/week recurring  
+- **Monthly Plan**: S$14.90 SGD/month recurring
 
 ### Test Cards
 - **Success**: `4242 4242 4242 4242`
@@ -122,8 +122,9 @@ PORT=8790
 # Stripe (use test keys for development)
 STRIPE_SECRET_KEY=sk_test_your_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
+STRIPE_DAILY_PRICE_ID=price_your_daily_price_id
+STRIPE_WEEKLY_PRICE_ID=price_your_weekly_price_id
 STRIPE_MONTHLY_PRICE_ID=price_your_monthly_price_id
-STRIPE_MONTHLY_PRO_PRICE_ID=price_your_monthly_pro_price_id
 
 # JWT (MUST match mainline config)
 JWT_SECRET=your_shared_secret_at_least_32_characters
@@ -135,9 +136,9 @@ DB_PATH=./data/payment.db
 ### Stripe Setup
 1. Create account at [stripe.com](https://stripe.com)
 2. Go to **Dashboard → Products** → Create products:
-   - Test Plan: $1.00 one-time
-   - Monthly Plan: $9.90 recurring monthly
-   - Monthly Pro Plan: $58.90 recurring monthly
+   - Daily Plan: S$1.99 recurring daily
+   - Weekly Plan: S$9.90 recurring weekly
+   - Monthly Plan: S$14.90 recurring monthly
 3. Copy Price IDs to `.env`
 4. For webhooks: `stripe listen --forward-to localhost:8790/webhooks/stripe`
 

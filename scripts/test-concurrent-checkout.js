@@ -21,7 +21,7 @@ const PAYMENT_TIMEOUT_MS = parseInt(process.env.PAYMENT_TIMEOUT_MS || '60000') /
 let TEST_JWT = process.env.TEST_JWT || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItY29uY3VycmVudCIsImlzcyI6Im1haW5saW5lIiwiaWF0IjoxNzAzMTIzNDAwLCJleHAiOjE3MDMxMjM0NjAsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSJ9.test-signature'
 
 // Test configuration
-const TEST_PRODUCT_ID = 'monthly-plan'
+const TEST_PRODUCT_ID = 'weekly-plan'
 const CONCURRENT_REQUEST_COUNT = 3
 const TIMEOUT_TEST_WAIT_MS = PAYMENT_TIMEOUT_MS + 5000 // Wait timeout + 5 seconds buffer
 

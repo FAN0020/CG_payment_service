@@ -16,14 +16,18 @@ const REQUIRED_VARS = [
   { name: 'STRIPE_SECRET_KEY', description: 'Stripe secret key (from Dashboard > API Keys)' },
   { name: 'STRIPE_WEBHOOK_SECRET', description: 'Stripe webhook secret (from Dashboard > Webhooks)' },
   { name: 'JWT_SECRET', description: 'JWT secret for authentication' },
+  { name: 'STRIPE_DAILY_PRICE_ID', description: 'Stripe price ID for daily subscription' },
+  { name: 'STRIPE_WEEKLY_PRICE_ID', description: 'Stripe price ID for weekly subscription' },
   { name: 'STRIPE_MONTHLY_PRICE_ID', description: 'Stripe price ID for monthly subscription' }
 ]
 
 const OPTIONAL_VARS = [
   { name: 'PORT', default: '8790' },
   { name: 'DB_PATH', default: './data/payment.db' },
-  { name: 'MONTHLY_PLAN_AMOUNT', default: '12.90' },
-  { name: 'MONTHLY_PLAN_CURRENCY', default: 'SGD' },
+  { name: 'DAILY_PLAN_AMOUNT', default: '1.99' },
+  { name: 'WEEKLY_PLAN_AMOUNT', default: '9.90' },
+  { name: 'MONTHLY_PLAN_AMOUNT', default: '14.90' },
+  { name: 'PLAN_CURRENCY', default: 'SGD' },
   { name: 'NODE_ENV', default: 'development' }
 ]
 

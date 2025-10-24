@@ -113,8 +113,8 @@ paths:
                       orderId: "order_xyz789"
                       status: "pending"
                       amount: 9.90
-                      currency: "USD"
-                      plan: "monthly-plan"
+                      currency: "SGD"
+                      plan: "weekly-plan"
                       createdAt: 1733011200000
                       updatedAt: 1733011200000
                 success:
@@ -129,8 +129,8 @@ paths:
                       orderId: "order_xyz789"
                       status: "success"
                       amount: 9.90
-                      currency: "USD"
-                      plan: "monthly-plan"
+                      currency: "SGD"
+                      plan: "weekly-plan"
                       createdAt: 1733011200000
                       updatedAt: 1733011200000
         '401':

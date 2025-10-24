@@ -4,7 +4,7 @@ Production-ready payment interface following ClassGuru's design system.
 
 ## Features
 
-- Three payment plans: Test ($1 for 2 days), Monthly ($9.90/month), and Monthly Pro ($58.90/month)
+- Three payment plans: Daily (S$1.99/day), Weekly (S$9.90/week), and Monthly (S$14.90/month)
 - Complete user journey: selection → success/cancel pages
 - Glassmorphism design with responsive layout
 - Accessible (keyboard navigation, reduced motion support)
@@ -14,13 +14,15 @@ Production-ready payment interface following ClassGuru's design system.
 ### 1. Configure Stripe Products
 
 1. Go to [Stripe Dashboard → Products](https://dashboard.stripe.com/test/products)
-2. Create two products:
-   - **Monthly Plan**: $9.90 USD recurring monthly
-   - **Monthly Pro Plan**: $58.90 USD recurring monthly
+2. Create three products:
+   - **Daily Plan**: S$1.99 SGD recurring daily
+   - **Weekly Plan**: S$9.90 SGD recurring weekly
+   - **Monthly Plan**: S$14.90 SGD recurring monthly
 3. Add Price IDs to `.env`:
    ```
+   STRIPE_DAILY_PRICE_ID=price_your_daily_price_id
+   STRIPE_WEEKLY_PRICE_ID=price_your_weekly_price_id
    STRIPE_MONTHLY_PRICE_ID=price_your_monthly_price_id
-   STRIPE_MONTHLY_PRO_PRICE_ID=price_your_monthly_pro_price_id
    ```
 
 ### 2. Generate Test JWT
@@ -71,23 +73,23 @@ frontend/
 
 1. **Update `src/config/products.ts`:**
    ```typescript
-   'premium-plan': {
-     priceId: process.env.STRIPE_PREMIUM_PRICE_ID || '',
-     amount: 29.90,
-     currency: 'USD',
-     name: 'Premium Plan',
-     description: 'For power users'
+   'weekly-plan': {
+     priceId: process.env.STRIPE_WEEKLY_PRICE_ID || '',
+     amount: 9.90,
+     currency: 'SGD',
+     name: 'Weekly Plan',
+     description: 'Best for regular users'
    }
    ```
 
 2. **Add to `.env`:**
    ```
-   STRIPE_PREMIUM_PRICE_ID=price_...
+   STRIPE_WEEKLY_PRICE_ID=price_...
    ```
 
 3. **Add button to `index.html`:**
    ```html
-   <button class="cta-button" data-plan="premium-plan" data-amount="29.90" data-currency="USD">
+   <button class="cta-button" data-plan="weekly-plan" data-amount="9.90" data-currency="SGD">
      Subscribe Now
    </button>
    ```

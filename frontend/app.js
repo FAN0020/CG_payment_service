@@ -208,7 +208,7 @@ async function handlePayment(event) {
       jwt: jwt,
       idempotency_key: idempotencyKey,
       product_id: productId,
-      currency: button.dataset.currency || 'USD',
+      currency: button.dataset.currency || 'SGD',
       platform: 'web',
       client_ref: 'payment_demo_v1'
     };

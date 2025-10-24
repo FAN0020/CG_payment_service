@@ -202,9 +202,9 @@ async function main() {
 
   // Check if we need to create new products
   const requiredProducts = [
-    { name: 'ClassGuru Test Plan', description: '2-day test access to ClassGuru AI features', amount: 1.00, interval: null },
-    { name: 'ClassGuru Monthly Plan', description: 'Monthly subscription to ClassGuru AI features', amount: 9.90, interval: 'month' },
-    { name: 'ClassGuru Monthly Pro Plan', description: 'Monthly Pro subscription with advanced features', amount: 58.90, interval: 'month' }
+    { name: 'ClassGuru Daily Plan', description: 'Daily access to ClassGuru AI features', amount: 1.99, interval: 'day' },
+    { name: 'ClassGuru Weekly Plan', description: 'Weekly subscription to ClassGuru AI features', amount: 9.90, interval: 'week' },
+    { name: 'ClassGuru Monthly Plan', description: 'Monthly subscription to ClassGuru AI features', amount: 14.90, interval: 'month' }
   ]
 
   console.log('\n🎯 Required Products for ClassGuru:')

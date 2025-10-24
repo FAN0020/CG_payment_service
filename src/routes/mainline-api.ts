@@ -79,7 +79,7 @@ export async function registerMainlineApiRoutes(
       })
 
       // Get default product configuration
-      const productConfig = getProductConfig('monthly-plan')
+      const productConfig = getProductConfig('weekly-plan')
 
       // Generate order ID
       const orderId = `order_${nanoid(12)}`

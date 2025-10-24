@@ -126,12 +126,12 @@
             // Format plan name
             let planDisplayName = 'Unknown Plan';
             if (data.plan) {
-              if (data.plan.includes('monthly-plan-pro')) {
-                planDisplayName = 'Monthly Pro Plan';
-              } else if (data.plan.includes('monthly-plan')) {
+              if (data.plan.includes('monthly-plan')) {
                 planDisplayName = 'Monthly Plan';
-              } else if (data.plan.includes('test-plan')) {
-                planDisplayName = 'Test Plan';
+              } else if (data.plan.includes('weekly-plan')) {
+                planDisplayName = 'Weekly Plan';
+              } else if (data.plan.includes('daily-plan')) {
+                planDisplayName = 'Daily Plan';
               } else {
                 planDisplayName = data.plan;
               }

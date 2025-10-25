@@ -83,7 +83,7 @@ async function loadCurrentPrices() {
       font-weight: 600;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     `;
-    errorContainer.textContent = 'Failed to load current prices. Using default values.';
+    errorContainer.textContent = '加载当前价格失败。使用默认值。';
     document.body.appendChild(errorContainer);
     
     // Auto-remove after 5 seconds
@@ -204,14 +204,14 @@ function showJWTModal() {
     `;
     
     modal.innerHTML = `
-      <h2 style="margin: 0 0 16px; font-size: 24px; color: #333;">Enter JWT Token</h2>
+      <h2 style="margin: 0 0 16px; font-size: 24px; color: #333;">输入JWT令牌</h2>
       <p style="margin: 0 0 20px; color: #666; line-height: 1.5;">
-        Please enter your JWT token to continue with the payment.<br>
-        <strong>To generate a test JWT, run:</strong> <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">npm run generate-jwt</code>
+        请输入您的JWT令牌以继续支付。<br>
+        <strong>要生成测试JWT，请运行：</strong> <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">npm run generate-jwt</code>
       </p>
       <textarea 
         id="jwt-input" 
-        placeholder="Paste your JWT token here..."
+        placeholder="请在此处粘贴您的JWT令牌..."
         style="
           width: 100%;
           min-height: 100px;
@@ -232,7 +232,7 @@ function showJWTModal() {
           border-radius: 8px;
           cursor: pointer;
           font-weight: 600;
-        ">Cancel</button>
+        ">取消</button>
         <button id="jwt-submit" style="
           padding: 10px 20px;
           border: none;
@@ -241,7 +241,7 @@ function showJWTModal() {
           border-radius: 8px;
           cursor: pointer;
           font-weight: 600;
-        ">Continue</button>
+        ">继续</button>
       </div>
     `;
     
@@ -285,7 +285,7 @@ async function getJWTToken() {
     jwt = await showJWTModal();
     
     if (!jwt) {
-      throw new Error('JWT token is required to proceed with payment');
+      throw new Error('需要JWT令牌才能继续支付');
     }
     
     localStorage.setItem('cg_demo_jwt', jwt);
@@ -313,7 +313,7 @@ async function handlePayment(event) {
   // Disable button and show loading
   button.disabled = true;
   const originalText = button.innerHTML;
-  button.innerHTML = '<span class="loading-spinner"></span> Processing...';
+  button.innerHTML = '<span class="loading-spinner"></span> 处理中...';
   
   // Hide any previous errors
   hideError(planType);
@@ -323,7 +323,7 @@ async function handlePayment(event) {
     const jwt = await getJWTToken();
     
     if (!jwt) {
-      throw new Error('JWT token is required to proceed with payment');
+      throw new Error('需要JWT令牌才能继续支付');
     }
     
     // Generate idempotency key
@@ -384,7 +384,7 @@ async function handlePayment(event) {
         return;
       } else {
         // Show retry message
-        showError(planType, `Payment is already in progress. Please wait ${retryAfter} seconds before trying again.`);
+        showError(planType, `支付正在进行中。请等待${retryAfter}秒后重试。`);
         
         // Re-enable button after retry period
         setTimeout(() => {
@@ -396,7 +396,7 @@ async function handlePayment(event) {
     }
     
     if (!response.ok) {
-      throw new Error(data.message || 'Payment initiation failed');
+      throw new Error(data.message || '支付启动失败');
     }
     
     // Check if we got a checkout URL
@@ -417,7 +417,7 @@ async function handlePayment(event) {
       // Redirect to Stripe Checkout
       window.location.href = data.data.checkout_url;
     } else {
-      throw new Error('No checkout URL received from server');
+      throw new Error('服务器未返回结账URL');
     }
     
   } catch (error) {
@@ -426,7 +426,7 @@ async function handlePayment(event) {
     console.error('  Stack:', error.stack);
     console.log('='.repeat(80) + '\n');
     
-    showError(planType, error.message || 'An error occurred. Please try again.');
+    showError(planType, error.message || '发生错误。请重试。');
     
     // Re-enable button
     button.disabled = false;
@@ -442,13 +442,13 @@ function updateJWTStatus() {
   const statusContainer = document.getElementById('jwt-status');
   
   if (jwt) {
-    statusText.textContent = '✓ JWT token stored';
+    statusText.textContent = '✓ JWT令牌已存储';
     statusText.style.color = '#22c55e';
     statusContainer.style.background = '#f0fdf4';
     statusContainer.style.border = '2px solid #22c55e';
     clearBtn.style.display = 'block';
   } else {
-    statusText.textContent = 'No JWT token stored';
+    statusText.textContent = '未存储JWT令牌';
     statusText.style.color = '#666';
     statusContainer.style.background = '#f5f5f5';
     statusContainer.style.border = '2px solid #ddd';
@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       localStorage.removeItem('cg_demo_jwt');
       updateJWTStatus();
       console.log('[AUTH] JWT cleared from localStorage');
-      alert('JWT token cleared. You will be prompted to enter a new token on your next payment.');
+      alert('JWT令牌已清除。下次支付时将提示您输入新令牌。');
     });
   }
   
@@ -509,11 +509,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   if (paymentStatus === 'success') {
     console.log('[STATUS] Returning from successful payment');
-    alert('Payment successful! Thank you for subscribing to ClassGuru.');
+    alert('支付成功！感谢您订阅ClassGuru。');
     window.history.replaceState({}, document.title, window.location.pathname);
   } else if (paymentStatus === 'cancel') {
     console.log('[STATUS] Returning from cancelled payment');
-    alert('Payment was cancelled. Feel free to try again when you\'re ready.');
+    alert('支付已取消。准备好时请随时重试。');
     window.history.replaceState({}, document.title, window.location.pathname);
   }
   
@@ -580,14 +580,14 @@ async function applyPromoCode() {
   const code = promoInput.value.trim().toUpperCase();
   
   if (!code) {
-    showPromoStatus('Please enter a promo code', 'error');
+    showPromoStatus('请输入优惠码', 'error');
     return;
   }
   
   // Disable button and show loading
   applyBtn.disabled = true;
-  applyBtn.textContent = 'Validating...';
-  showPromoStatus('Validating promo code...', 'loading');
+  applyBtn.textContent = '验证中...';
+  showPromoStatus('正在验证优惠码...', 'loading');
   
   try {
     const promoData = await validatePromoCode(code);
@@ -598,7 +598,7 @@ async function applyPromoCode() {
     promoDiscount = promoData.discount_amount;
     
     // Show success message
-    showPromoStatus(`✅ ${promoData.description} - $${promoData.discount_amount.toFixed(2)} discount applied!`, 'success');
+    showPromoStatus(`✅ ${promoData.description} - 已应用$${promoData.discount_amount.toFixed(2)}折扣！`, 'success');
     
     // Update pricing display
     updatePricingWithDiscount();
@@ -616,7 +616,7 @@ async function applyPromoCode() {
   } finally {
     // Re-enable button
     applyBtn.disabled = false;
-    applyBtn.textContent = 'Apply';
+    applyBtn.textContent = '应用';
   }
 }
 
@@ -749,7 +749,7 @@ async function handlePaymentWithPromo(event) {
   // Disable button and show loading
   button.disabled = true;
   const originalText = button.innerHTML;
-  button.innerHTML = '<span class="loading-spinner"></span> Processing...';
+  button.innerHTML = '<span class="loading-spinner"></span> 处理中...';
   
   // Hide any previous errors
   hideError(planType);
@@ -759,7 +759,7 @@ async function handlePaymentWithPromo(event) {
     const jwt = await getJWTToken();
     
     if (!jwt) {
-      throw new Error('JWT token is required to proceed with payment');
+      throw new Error('需要JWT令牌才能继续支付');
     }
     
     // Generate idempotency key

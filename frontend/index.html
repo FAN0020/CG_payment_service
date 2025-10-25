@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClassGuru - Choose Your Plan</title>
+  <title>ClassGuru - 选择您的方案</title>
   <link rel="stylesheet" href="/payment/styles.css">
 </head>
 <body>
@@ -21,7 +21,7 @@
         <div class="cg-logo">CG</div>
         <div class="cg-brand-text">
           <h1>ClassGuru</h1>
-          <p>AI-Powered Learning</p>
+          <p>AI驱动学习</p>
         </div>
       </div>
     </header>
@@ -30,11 +30,11 @@
     <main class="cg-content">
       <!-- Hero Section -->
       <div class="payment-hero">
-        <h1>Choose Your Plan</h1>        
+        <h1>选择您的方案</h1>        
         <!-- JWT Status Indicator -->
         <div id="jwt-status" style="margin-top: 20px; padding: 12px 20px; border-radius: 8px; background: #f5f5f5; display: inline-flex; align-items: center; gap: 12px;">
-          <span id="jwt-status-text" style="font-size: 14px; color: #666;">No JWT token stored</span>
-          <button id="clear-jwt-btn" style="display: none; padding: 6px 12px; border: none; background: #ff4444; color: white; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">Clear JWT</button>
+          <span id="jwt-status-text" style="font-size: 14px; color: #666;">未存储JWT令牌</span>
+          <button id="clear-jwt-btn" style="display: none; padding: 6px 12px; border: none; background: #ff4444; color: white; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">清除JWT</button>
         </div>
         
         <!-- Promo Code Section -->
@@ -42,10 +42,10 @@
           <input 
             type="text" 
             id="promo-code-input" 
-            placeholder="Enter promo code"
+            placeholder="输入优惠码"
             class="promo-input"
           />
-          <button id="apply-promo-btn" class="promo-button">Apply</button>
+          <button id="apply-promo-btn" class="promo-button">应用</button>
           <div id="promo-status" class="promo-status"></div>
         </div>
       </div>
@@ -54,9 +54,9 @@
       <div class="pricing-grid">
         <!-- Daily Plan Card -->
         <div class="pricing-card">
-          <span class="cg-badge">Try It Out</span>
-          <h2 class="plan-name">Daily Plan</h2>
-          <p class="plan-description">Perfect for trying out</p>
+          <span class="cg-badge">试用</span>
+          <h2 class="plan-name">日计划</h2>
+          <p class="plan-description">适合试用</p>
           
           <div class="plan-price">
             <span class="price-currency">S$</span>
@@ -65,11 +65,11 @@
           </div>
 
           <ul class="features-list">
-            <li>Basic AI features</li>
-            <li>Limited course materials</li>
-            <li>Email support</li>
-            <li>Perfect for trying out</li>
-            <li>24-hour access</li>
+            <li>基础AI功能</li>
+            <li>有限课程材料</li>
+            <li>邮件支持</li>
+            <li>适合试用</li>
+            <li>24小时访问</li>
           </ul>
 
           <button 
@@ -77,17 +77,17 @@
             data-plan="daily-plan" 
             data-amount="--.--" 
             data-currency="SGD"
-            aria-label="Get Started with Daily Plan">
-            Try Daily
+            aria-label="开始使用日计划">
+            试用日计划
           </button>
           <div class="error-message hidden" id="error-daily" role="alert"></div>
         </div>
 
         <!-- Weekly Plan Card -->
         <div class="pricing-card featured">
-          <span class="cg-badge">Most Popular</span>
-          <h2 class="plan-name">Weekly Plan</h2>
-          <p class="plan-description">Best for regular users</p>
+          <span class="cg-badge">最受欢迎</span>
+          <h2 class="plan-name">周计划</h2>
+          <p class="plan-description">最适合普通用户</p>
           
           <div class="plan-price">
             <span class="price-currency">S$</span>
@@ -96,12 +96,12 @@
           </div>
 
           <ul class="features-list">
-            <li>Everything in Daily Plan</li>
-            <li>Unlimited course materials</li>
-            <li>Advanced AI features</li>
-            <li>Priority support</li>
-            <li>Study analytics dashboard</li>
-            <li>7-day access</li>
+            <li>包含日计划所有功能</li>
+            <li>无限课程材料</li>
+            <li>高级AI功能</li>
+            <li>优先支持</li>
+            <li>学习分析仪表板</li>
+            <li>7天访问</li>
           </ul>
 
           <button 
@@ -109,17 +109,17 @@
             data-plan="weekly-plan" 
             data-amount="--.--" 
             data-currency="SGD"
-            aria-label="Get Started with Weekly Plan">
-            Get Started
+            aria-label="开始使用周计划">
+            开始使用
           </button>
           <div class="error-message hidden" id="error-weekly" role="alert"></div>
         </div>
 
         <!-- Monthly Plan Card -->
         <div class="pricing-card">
-          <span class="cg-badge">Professional</span>
-          <h2 class="plan-name">Monthly Plan</h2>
-          <p class="plan-description">For power users and professionals</p>
+          <span class="cg-badge">专业版</span>
+          <h2 class="plan-name">月计划</h2>
+          <p class="plan-description">适合高级用户和专业人士</p>
           
           <div class="plan-price">
             <span class="price-currency">S$</span>
@@ -128,15 +128,15 @@
           </div>
 
           <ul class="features-list">
-            <li>Everything in Weekly Plan</li>
-            <li>Advanced analytics dashboard</li>
-            <li>Custom integrations</li>
-            <li>API access</li>
-            <li>Dedicated support</li>
-            <li>White-label options</li>
-            <li>Advanced reporting</li>
-            <li>Team collaboration tools</li>
-            <li>30-day access</li>
+            <li>包含周计划所有功能</li>
+            <li>高级分析仪表板</li>
+            <li>自定义集成</li>
+            <li>API访问</li>
+            <li>专属支持</li>
+            <li>白标选项</li>
+            <li>高级报告</li>
+            <li>团队协作工具</li>
+            <li>30天访问</li>
           </ul>
 
           <button 
@@ -144,8 +144,8 @@
             data-plan="monthly-plan" 
             data-amount="--.--" 
             data-currency="SGD"
-            aria-label="Get Started with Monthly Plan">
-            Go Pro
+            aria-label="开始使用月计划">
+            升级专业版
           </button>
           <div class="error-message hidden" id="error-monthly" role="alert"></div>
         </div>
@@ -153,14 +153,14 @@
 
       <!-- Footer Info -->
       <div class="cg-card text-center" style="max-width: 600px; padding: 24px;">
-        <p style="margin: 0; font-weight: 600;">🔒 Secure payment powered by Stripe</p>
-        <p style="margin: 8px 0 0; color: var(--cg-muted); font-size: 0.9rem;">All transactions are encrypted and secure</p>
+        <p style="margin: 0; font-weight: 600;">🔒 由Stripe提供安全支付</p>
+        <p style="margin: 8px 0 0; color: var(--cg-muted); font-size: 0.9rem;">所有交易均加密且安全</p>
       </div>
     </main>
 
     <!-- Footer - Glassmorphism -->
     <footer class="cg-footer">
-      <span>© 2025 ClassGuru. All rights reserved.</span>
+      <span>© 2025 ClassGuru. 版权所有.</span>
     </footer>
   </div>
 

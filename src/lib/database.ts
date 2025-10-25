@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { SubscriptionOrder, PaymentEvent, DatabaseError } from '../types/index.js'
 import { logger } from './logger.js'
 import { getEncryptionManager } from './encryption.js'
+import { ActivationCode, ActivationCodeStats } from './activation.js'
 
 export class PaymentDatabase {
   private db: Database.Database
@@ -65,9 +66,19 @@ export class PaymentDatabase {
 
     // Add missing columns if they don't exist
     try {
-      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN request_id TEXT UNIQUE;`)
+      // Check if column exists first
+      const tableInfo = this.db.prepare("PRAGMA table_info(subscription_orders)").all()
+      const hasRequestIdColumn = tableInfo.some((col: any) => col.name === 'request_id')
+      
+      if (!hasRequestIdColumn) {
+        this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN request_id TEXT;`)
+        logger.info('Added request_id column to subscription_orders')
+      } else {
+        logger.info('request_id column already exists in subscription_orders')
+      }
     } catch (e) {
-      // Column already exists, ignore
+      logger.error('Failed to add request_id column:', e)
+      throw e
     }
     
     try {
@@ -87,16 +98,58 @@ export class PaymentDatabase {
     } catch (e) {
       // Column already exists, ignore
     }
+    
+    // TODO: Remove after testing period - Activation code columns
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN test_activated BOOLEAN DEFAULT FALSE;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+    
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN activation_code TEXT;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
 
-    // Create indexes
+    // TODO: Remove after testing period - Activation codes table
     this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_orders_user_id ON subscription_orders(user_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_stripe_sub ON subscription_orders(stripe_subscription_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_status ON subscription_orders(status);
-      CREATE INDEX IF NOT EXISTS idx_orders_stripe_session ON subscription_orders(stripe_session_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_request_id ON subscription_orders(request_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_request_expires ON subscription_orders(request_expires_at);
+      CREATE TABLE IF NOT EXISTS activation_codes (
+        code TEXT PRIMARY KEY,
+        is_used BOOLEAN DEFAULT FALSE,
+        used_by TEXT,
+        created_at INTEGER NOT NULL,
+        used_at INTEGER
+      );
     `)
+
+    // Create indexes after all columns are added
+    try {
+      // Verify request_id column exists before creating index
+      const tableInfo = this.db.prepare("PRAGMA table_info(subscription_orders)").all()
+      logger.info('subscription_orders table structure:', tableInfo)
+      
+      const hasRequestIdColumn = tableInfo.some((col: any) => col.name === 'request_id')
+      logger.info('request_id column exists:', hasRequestIdColumn)
+      
+      if (hasRequestIdColumn) {
+        this.db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_orders_user_id ON subscription_orders(user_id);
+          CREATE INDEX IF NOT EXISTS idx_orders_stripe_sub ON subscription_orders(stripe_subscription_id);
+          CREATE INDEX IF NOT EXISTS idx_orders_status ON subscription_orders(status);
+          CREATE INDEX IF NOT EXISTS idx_orders_stripe_session ON subscription_orders(stripe_session_id);
+          CREATE INDEX IF NOT EXISTS idx_orders_request_id ON subscription_orders(request_id);
+          CREATE INDEX IF NOT EXISTS idx_orders_request_expires ON subscription_orders(request_expires_at);
+        `)
+        logger.info('Created indexes for subscription_orders table')
+      } else {
+        logger.error('request_id column not found, skipping index creation')
+        throw new Error('request_id column not found')
+      }
+    } catch (e) {
+      logger.error('Failed to create indexes for subscription_orders:', e)
+      throw e
+    }
 
     // Create payment_events table for webhook idempotency
     this.db.exec(`
@@ -155,6 +208,92 @@ export class PaymentDatabase {
       CREATE INDEX IF NOT EXISTS idx_active_payments_expires ON active_payments(expires_at);
       CREATE INDEX IF NOT EXISTS idx_active_payments_user_product ON active_payments(user_id, product_id);
     `)
+
+    // TODO: Remove after testing period
+    // Create activation_codes table for internal testing
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS activation_codes (
+        code TEXT PRIMARY KEY,
+        is_used BOOLEAN DEFAULT FALSE,
+        used_by TEXT,
+        created_at INTEGER NOT NULL,
+        used_at INTEGER
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_activation_codes_used_by ON activation_codes(used_by);
+      CREATE INDEX IF NOT EXISTS idx_activation_codes_is_used ON activation_codes(is_used);
+    `)
+
+    // TODO: Remove after testing period
+    // Add test_activated and activation_code columns to subscription_orders
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN test_activated BOOLEAN DEFAULT FALSE;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+    
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN activation_code TEXT;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // Add promo_code column to subscription_orders
+    try {
+      this.db.exec(`ALTER TABLE subscription_orders ADD COLUMN promo_code TEXT;`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // Create promo_codes table for production promo codes
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS promo_codes (
+          code TEXT PRIMARY KEY,
+          plan_type TEXT NOT NULL,
+          plan_amount REAL NOT NULL,
+          plan_currency TEXT NOT NULL,
+          is_used BOOLEAN DEFAULT FALSE,
+          used_by TEXT,
+          created_at INTEGER NOT NULL,
+          used_at INTEGER,
+          expires_at INTEGER
+        );
+      `)
+      logger.info('Promo codes table created successfully')
+    } catch (e) {
+      logger.error('Failed to create promo_codes table:', e)
+      throw e
+    }
+
+    // Verify table structure before creating indexes
+    try {
+      const tableInfo = this.db.prepare("PRAGMA table_info(promo_codes)").all()
+      logger.info('Promo codes table structure:', tableInfo)
+      
+      // Check if used_by column exists
+      const hasUsedByColumn = tableInfo.some((col: any) => col.name === 'used_by')
+      if (!hasUsedByColumn) {
+        logger.error('used_by column not found in promo_codes table')
+        throw new Error('used_by column not found')
+      }
+    } catch (e) {
+      logger.error('Failed to verify table structure:', e)
+      throw e
+    }
+
+    // Create indexes after table creation
+    try {
+      this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_promo_codes_used_by ON promo_codes(used_by);
+        CREATE INDEX IF NOT EXISTS idx_promo_codes_is_used ON promo_codes(is_used);
+        CREATE INDEX IF NOT EXISTS idx_promo_codes_expires ON promo_codes(expires_at);
+      `)
+      logger.info('Promo codes indexes created successfully')
+    } catch (e) {
+      logger.error('Failed to create promo_codes indexes:', e)
+      throw e
+    }
 
     logger.info('Database initialized successfully')
   }
@@ -632,6 +771,176 @@ export class PaymentDatabase {
   // ============================================================================
   // Cleanup
   // ============================================================================
+
+  // ============================================================================
+  // TODO: Remove after testing period
+  // Activation Code Methods (Internal Testing Feature)
+  // ============================================================================
+
+  /**
+   * Create a new activation code
+   * TODO: Remove after testing period
+   */
+  createActivationCode(code: string): void {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO activation_codes (code, created_at)
+        VALUES (?, ?)
+      `)
+      stmt.run(code, Date.now())
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to create activation code: ${error.message}`)
+    }
+  }
+
+  /**
+   * Get activation code by code string
+   * TODO: Remove after testing period
+   */
+  getActivationCode(code: string): ActivationCode | null {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM activation_codes WHERE code = ?
+      `)
+      return stmt.get(code) as ActivationCode | null
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get activation code: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check if activation code is valid and available
+   * TODO: Remove after testing period
+   */
+  isActivationCodeValid(code: string): boolean {
+    const activationCode = this.getActivationCode(code)
+    return activationCode !== null && !activationCode.is_used
+  }
+
+  /**
+   * Redeem activation code for a user
+   * TODO: Remove after testing period
+   */
+  redeemActivationCode(code: string, userId: string): boolean {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE activation_codes 
+        SET is_used = TRUE, used_by = ?, used_at = ?
+        WHERE code = ? AND is_used = FALSE
+      `)
+      const result = stmt.run(userId, Date.now(), code)
+      return result.changes > 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to redeem activation code: ${error.message}`)
+    }
+  }
+
+  // ============================================================================
+  // Promo Code Methods
+  // ============================================================================
+
+  /**
+   * Get promo code by code
+   */
+  getPromoCode(code: string): any | null {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM promo_codes WHERE code = ?
+      `)
+      return stmt.get(code)
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get promo code: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check if promo code is valid and available
+   */
+  isPromoCodeValid(code: string): boolean {
+    const promoCode = this.getPromoCode(code)
+    if (!promoCode) return false
+    
+    // Check if code is already used
+    if (promoCode.is_used) return false
+    
+    // Check if code is expired
+    const now = Date.now()
+    if (promoCode.expires_at && promoCode.expires_at < now) return false
+    
+    return true
+  }
+
+  /**
+   * Redeem promo code for a user
+   */
+  redeemPromoCode(code: string, userId: string): boolean {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE promo_codes 
+        SET is_used = TRUE, used_by = ?, used_at = ?
+        WHERE code = ? AND is_used = FALSE
+      `)
+      const result = stmt.run(userId, Date.now(), code)
+      return result.changes > 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to redeem promo code: ${error.message}`)
+    }
+  }
+
+  /**
+   * Calculate promo code discount amount
+   */
+  calculatePromoDiscount(code: string, originalAmount: number): number {
+    const promoCode = this.getPromoCode(code)
+    if (!promoCode) return 0
+    
+    // For 100% off daily plan ($1.99), return full amount
+    if (promoCode.plan_type === 'daily-plan' && promoCode.plan_amount === 1.99) {
+      return originalAmount // 100% discount = full amount
+    }
+    
+    return 0
+  }
+
+  /**
+   * Get promo code statistics
+   */
+  getPromoCodeStats(): any {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN is_used = FALSE THEN 1 ELSE 0 END) as unused,
+          SUM(CASE WHEN is_used = TRUE THEN 1 ELSE 0 END) as used
+        FROM promo_codes
+      `)
+      return stmt.get()
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get promo code stats: ${error.message}`)
+    }
+  }
+
+  /**
+   * Get activation code statistics
+   * TODO: Remove after testing period
+   */
+  getActivationCodeStats(): ActivationCodeStats {
+    try {
+      const totalStmt = this.db.prepare('SELECT COUNT(*) as count FROM activation_codes')
+      const usedStmt = this.db.prepare('SELECT COUNT(*) as count FROM activation_codes WHERE is_used = TRUE')
+      
+      const total = totalStmt.get() as { count: number }
+      const used = usedStmt.get() as { count: number }
+      
+      return {
+        total: total.count,
+        used: used.count,
+        available: total.count - used.count
+      }
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get activation code stats: ${error.message}`)
+    }
+  }
 
   close(): void {
     this.db.close()

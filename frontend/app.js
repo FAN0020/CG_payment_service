@@ -135,16 +135,7 @@ function updatePlanPricing(planKey, planData) {
     console.log(`[PRICING] Updated ${planKey} button data-amount to: ${planData.amount}`);
   }
   
-  // Update billing period text
-  const periodElement = planElement.querySelector('.price-period');
-  console.log(`[PRICING] Found period element:`, periodElement);
-  if (periodElement && planData.interval) {
-    const intervalText = planData.interval === 'day' ? 'day' : 
-                        planData.interval === 'week' ? 'week' : 
-                        planData.interval === 'month' ? 'month' : 
-                        planData.interval;
-    periodElement.textContent = `Billed ${intervalText}ly`;
-  }
+  // Note: Billing period text has been removed per user request
   
   console.log(`[PRICING] Successfully updated ${planKey} pricing`);
 }

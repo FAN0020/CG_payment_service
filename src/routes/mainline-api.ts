@@ -81,6 +81,11 @@ export async function registerMainlineApiRoutes(
       // Get default product configuration
       const productConfig = getProductConfig('weekly-plan')
 
+      // Fetch amount from Stripe using price ID
+      const stripe = stripeManager.getInstance()
+      const price = await stripe.prices.retrieve(productConfig.priceId)
+      const amount = price.unit_amount ? price.unit_amount / 100 : 0 // Convert from cents to dollars
+
       // Generate order ID
       const orderId = `order_${nanoid(12)}`
 
@@ -92,8 +97,8 @@ export async function registerMainlineApiRoutes(
         order_id: orderId,
         user_id: userId,
         status: 'pending',
-        plan: `${productConfig.type}_${productConfig.amount}_${productConfig.currency}`,
-        amount: productConfig.amount,
+        plan: `${productConfig.type}_${amount}_${productConfig.currency}`,
+        amount: amount,
         currency: productConfig.currency,
         request_id: requestId,
         ad_source: adSource,

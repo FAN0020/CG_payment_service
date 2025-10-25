@@ -224,13 +224,13 @@ async function handleCheckoutSessionCompleted(
     const notifier = getMainlineNotifier()
     await notifier.notifyPaymentCompletion({
       orderId,
-      userId: order.user_id,
+      userId: order?.user_id || '',
       status: 'completed',
       timestamp: Date.now(),
-      amount: order.amount,
-      currency: order.currency,
-      plan: order.plan,
-      subscriptionId
+      amount: order?.amount,
+      currency: order?.currency,
+      plan: order?.plan,
+      subscriptionId: subscriptionId || undefined
     })
     logger.info('Payment completion notification sent to mainline', { orderId })
   } catch (error: any) {

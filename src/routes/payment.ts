@@ -178,11 +178,17 @@ export async function registerPaymentRoutes(
       // Get product configuration (centralized)
       const productConfig = getProductConfig(productId)
 
+      // Fetch amount from Stripe using price ID
+      const stripe = stripeManager.getInstance()
+      const price = await stripe.prices.retrieve(productConfig.priceId)
+      const amount = price.unit_amount ? price.unit_amount / 100 : 0 // Convert from cents to dollars
+
       logger.info('Create subscription request', {
         requestId,
         userId,
         productId,
         currency: productConfig.currency,
+        amount,
         idempotencyKey: idempotency_key
       })
       
@@ -301,7 +307,7 @@ export async function registerPaymentRoutes(
           userId,
           stripeCustomerEmail: customerEmail,  // From request body or JWT
           plan: `${productId}_${productConfig.currency}`,
-          amount: 0, // Amount will be fetched from Stripe via price ID
+          amount: amount, // Use amount fetched from Stripe
           currency: productConfig.currency,
           paymentMethod,
           platform,

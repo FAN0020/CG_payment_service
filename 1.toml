@@ -10,4 +10,9 @@ name       = "yp"
 type       = "tcp"
 localIP    = "127.0.0.1"
 localPort  = 8790
-remotePort =12281
+remotePort = 12281
+
+# Usage:
+# 1. Make sure your payment service is running on http://localhost:8790
+# 2. Run frpc: ./frpc -c 1.toml
+# 3. Access via: https://yp.test.classguruai.com

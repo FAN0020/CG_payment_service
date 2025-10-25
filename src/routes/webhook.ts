@@ -4,6 +4,7 @@ import { StripeManager } from '../lib/stripe.js'
 import { PaymentDatabase } from '../lib/database.js'
 import { handlerRegistry } from '../lib/handler-registry.js'
 import { logger } from '../lib/logger.js'
+import { getMainlineNotifier } from '../lib/mainline-notifier.js'
 
 /**
  * Stripe webhook handler
@@ -218,6 +219,27 @@ async function handleCheckoutSessionCompleted(
     subscriptionId
   })
 
+  // Send notification to mainline
+  try {
+    const notifier = getMainlineNotifier()
+    await notifier.notifyPaymentCompletion({
+      orderId,
+      userId: order.user_id,
+      status: 'completed',
+      timestamp: Date.now(),
+      amount: order.amount,
+      currency: order.currency,
+      plan: order.plan,
+      subscriptionId
+    })
+    logger.info('Payment completion notification sent to mainline', { orderId })
+  } catch (error: any) {
+    logger.warn('Failed to send payment completion notification to mainline', {
+      orderId,
+      error: error.message
+    })
+  }
+
   return orderId
 }
 
@@ -284,6 +306,25 @@ async function handleSubscriptionUpdated(
     subscriptionId,
     status
   })
+
+  // Send notification to mainline
+  try {
+    const notifier = getMainlineNotifier()
+    await notifier.notifySubscriptionUpdate({
+      orderId: order.order_id,
+      userId: order.user_id,
+      status: status as 'active' | 'cancelled' | 'expired' | 'incomplete',
+      timestamp: Date.now(),
+      subscriptionId,
+      expiresAt
+    })
+    logger.info('Subscription update notification sent to mainline', { orderId: order.order_id })
+  } catch (error: any) {
+    logger.warn('Failed to send subscription update notification to mainline', {
+      orderId: order.order_id,
+      error: error.message
+    })
+  }
 
   return order.order_id
 }

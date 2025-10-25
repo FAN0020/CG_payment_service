@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { SubscriptionOrder, PaymentEvent, DatabaseError } from '../types/index.js'
 import { logger } from './logger.js'
+import { getEncryptionManager } from './encryption.js'
 
 export class PaymentDatabase {
   private db: Database.Database
@@ -8,6 +9,32 @@ export class PaymentDatabase {
   constructor(dbPath: string) {
     this.db = new Database(dbPath)
     this.initializeTables()
+  }
+
+  /**
+   * Decrypt sensitive fields in order data
+   */
+  private decryptOrderData(order: any): SubscriptionOrder {
+    const encryption = getEncryptionManager()
+    return {
+      ...order,
+      user_id: encryption.decryptUserId(order.user_id),
+      stripe_customer_email: order.stripe_customer_email ? encryption.decryptEmail(order.stripe_customer_email) : undefined,
+      amount: encryption.decryptAmount(order.amount)
+    }
+  }
+
+  /**
+   * Encrypt sensitive fields in order data for storage
+   */
+  private encryptOrderDataForStorage(order: Omit<SubscriptionOrder, 'created_at' | 'updated_at'>): any {
+    const encryption = getEncryptionManager()
+    return {
+      ...order,
+      user_id: encryption.encryptUserId(order.user_id),
+      stripe_customer_email: order.stripe_customer_email ? encryption.encryptEmail(order.stripe_customer_email) : undefined,
+      amount: encryption.encryptAmount(order.amount)
+    }
   }
 
   private initializeTables(): void {
@@ -138,6 +165,10 @@ export class PaymentDatabase {
 
   createOrder(order: Omit<SubscriptionOrder, 'created_at' | 'updated_at'>): SubscriptionOrder {
     const now = Date.now()
+    
+    // Encrypt sensitive data before storage
+    const encryptedOrder = this.encryptOrderDataForStorage(order)
+    
     const fullOrder: SubscriptionOrder = {
       stripe_session_id: undefined,
       stripe_subscription_id: undefined,
@@ -151,7 +182,7 @@ export class PaymentDatabase {
       campaign_id: undefined,
       expires_at: undefined,
       request_expires_at: undefined,
-      ...order,
+      ...encryptedOrder,
       created_at: now,
       updated_at: now
     }
@@ -208,7 +239,12 @@ export class PaymentDatabase {
   getOrderById(orderId: string): SubscriptionOrder | null {
     try {
       const stmt = this.db.prepare('SELECT * FROM subscription_orders WHERE order_id = ?')
-      return stmt.get(orderId) as SubscriptionOrder | undefined || null
+      const order = stmt.get(orderId) as SubscriptionOrder | undefined || null
+      
+      if (!order) return null
+      
+      // Decrypt sensitive data before returning
+      return this.decryptOrderData(order)
     } catch (error: any) {
       throw new DatabaseError(`Failed to get order: ${error.message}`)
     }
@@ -217,7 +253,12 @@ export class PaymentDatabase {
   getOrderByStripeSessionId(sessionId: string): SubscriptionOrder | null {
     try {
       const stmt = this.db.prepare('SELECT * FROM subscription_orders WHERE stripe_session_id = ?')
-      return stmt.get(sessionId) as SubscriptionOrder | undefined || null
+      const order = stmt.get(sessionId) as SubscriptionOrder | undefined || null
+      
+      if (!order) return null
+      
+      // Decrypt sensitive data before returning
+      return this.decryptOrderData(order)
     } catch (error: any) {
       throw new DatabaseError(`Failed to get order by session: ${error.message}`)
     }

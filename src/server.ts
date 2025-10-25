@@ -13,6 +13,8 @@ import { registerPaymentRoutes } from './routes/payment.js'
 import { registerWebhookRoutes } from './routes/webhook.js'
 import { registerMainlineApiRoutes } from './routes/mainline-api.js'
 import { generateRequestId } from './lib/api-response.js'
+import { initializeEncryption } from './lib/encryption.js'
+import { initializeMainlineNotifier } from './lib/mainline-notifier.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -27,7 +29,9 @@ function loadConfig() {
     'JWT_SECRET',
     'STRIPE_DAILY_PRICE_ID',
     'STRIPE_WEEKLY_PRICE_ID',
-    'STRIPE_MONTHLY_PRICE_ID'
+    'STRIPE_MONTHLY_PRICE_ID',
+    'MAINLINE_BASE_URL',
+    'MAINLINE_API_KEY'
   ]
 
   for (const varName of requiredVars) {
@@ -54,7 +58,9 @@ function loadConfig() {
     successUrl: process.env.FRONTEND_SUCCESS_URL || `${baseUrl}/payment/success`,
     cancelUrl: process.env.FRONTEND_CANCEL_URL || `${baseUrl}/payment/cancel`,
     baseUrl,
-    isProduction
+    isProduction,
+    mainlineBaseUrl: process.env.MAINLINE_BASE_URL!,
+    mainlineApiKey: process.env.MAINLINE_API_KEY!
   }
 }
 
@@ -66,6 +72,14 @@ async function main() {
     // Load configuration
     const config = loadConfig()
     logger.info('Configuration loaded successfully')
+
+    // Initialize encryption first
+    initializeEncryption(config.jwtSecret)
+    logger.info('Encryption initialized')
+
+    // Initialize mainline notifier
+    initializeMainlineNotifier(config.mainlineBaseUrl, config.mainlineApiKey)
+    logger.info('Mainline notifier initialized')
 
     // Initialize database
     const db = new PaymentDatabase(config.dbPath)

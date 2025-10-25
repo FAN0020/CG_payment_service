@@ -153,11 +153,12 @@ export const CreateOrderInputSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
   stripeCustomerEmail: z.string().email().optional(),  // Email for Stripe checkout only
   plan: z.string(),
-  amount: z.number().positive(),
+  amount: z.number().min(0), // Allow 0 for promo codes with 100% discount
   currency: z.string(),
   paymentMethod: z.string().optional(),
   platform: z.string().optional(),
-  clientRef: z.string().optional()
+  clientRef: z.string().optional(),
+  promoCode: z.string().optional()
 })
 
 export const UpdateSubscriptionInputSchema = z.object({

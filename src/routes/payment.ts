@@ -188,9 +188,10 @@ export async function registerPaymentRoutes(
       let finalAmount = originalAmount
       let discountAmount = 0
       let promoCodeData = null
+      let sanitizedCode = null
       
       if (promo_code) {
-        const sanitizedCode = promo_code.trim().toUpperCase()
+        sanitizedCode = promo_code.trim().toUpperCase()
         
         // Validate promo code
         if (!db.isPromoCodeValid(sanitizedCode)) {
@@ -209,10 +210,10 @@ export async function registerPaymentRoutes(
         
         promoCodeData = {
           code: sanitizedCode,
-          discount_type: promoCode.discount_type,
-          discount_value: promoCode.discount_value,
+          discount_type: 'fixed_amount', // All promo codes are 100% off
+          discount_value: discountAmount,
           discount_amount: discountAmount,
-          description: promoCode.description
+          description: `Free ${promoCode.plan_type} ($${promoCode.plan_amount} ${promoCode.plan_currency})`
         }
         
         logger.info('Promo code applied', {
@@ -371,6 +372,26 @@ export async function registerPaymentRoutes(
 
       const orderId = orderResult.data.order_id
       logger.debug('Order created', { orderId })
+
+      // ========== REDEEM PROMO CODE ==========
+      if (promo_code && promoCodeData) {
+        const redeemed = db.redeemPromoCode(sanitizedCode, userId)
+        if (redeemed) {
+          logger.info('Promo code redeemed successfully', {
+            requestId,
+            userId,
+            promoCode: sanitizedCode,
+            orderId
+          })
+        } else {
+          logger.warn('Failed to redeem promo code', {
+            requestId,
+            userId,
+            promoCode: sanitizedCode,
+            orderId
+          })
+        }
+      }
 
       // Record idempotency AFTER order creation
       db.recordIdempotency(idempotency_key, userId, orderId, 24)

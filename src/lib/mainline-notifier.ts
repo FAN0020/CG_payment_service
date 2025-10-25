@@ -59,7 +59,6 @@ export class MainlineNotifier {
           'X-Event': 'payment_completed'
         },
         body: JSON.stringify(payload),
-        timeout: this.timeout
       })
 
       if (response.ok) {
@@ -127,7 +126,6 @@ export class MainlineNotifier {
           'X-Event': 'subscription_updated'
         },
         body: JSON.stringify(payload),
-        timeout: this.timeout
       })
 
       if (response.ok) {
@@ -196,7 +194,6 @@ export class MainlineNotifier {
           'X-Event': 'credits_allocated'
         },
         body: JSON.stringify(payload),
-        timeout: this.timeout
       })
 
       if (response.ok) {
@@ -236,7 +233,6 @@ export class MainlineNotifier {
           'Authorization': `Bearer ${this.apiKey}`,
           'X-Service': 'payment-service'
         },
-        timeout: this.timeout
       })
 
       if (response.ok) {

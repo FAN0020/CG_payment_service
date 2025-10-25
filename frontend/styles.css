@@ -700,6 +700,74 @@ button {
 }
 
 /* ============================================================================
+   Promo Code Section - Clean and Minimal
+   ============================================================================ */
+.promo-code-section {
+  margin-top: 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.promo-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--cg-border);
+  border-radius: var(--cg-radius-sm);
+  font-size: 14px;
+  background: var(--cg-surface-strong);
+  color: var(--cg-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.promo-input:focus {
+  outline: none;
+  border-color: var(--cg-primary);
+  box-shadow: 0 0 0 3px rgba(51, 88, 255, 0.1);
+}
+
+.promo-button {
+  padding: 10px 16px;
+  background: var(--cg-primary);
+  color: white;
+  border: none;
+  border-radius: var(--cg-radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.promo-button:hover {
+  background: var(--cg-primary-dark);
+  transform: translateY(-1px);
+}
+
+.promo-button:active {
+  transform: translateY(0);
+}
+
+.promo-status {
+  margin-top: 8px;
+  font-size: 13px;
+  min-height: 16px;
+  text-align: center;
+  color: var(--cg-muted);
+}
+
+.promo-status.success {
+  color: var(--cg-success);
+}
+
+.promo-status.error {
+  color: var(--cg-danger);
+}
+
+/* ============================================================================
    Utility Classes
    ============================================================================ */
 

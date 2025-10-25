@@ -332,12 +332,12 @@ export class PaymentDatabase {
           order_id, user_id, stripe_session_id, stripe_subscription_id,
           stripe_customer_id, stripe_customer_email, status, plan, amount, currency,
           payment_method, platform, client_ref, request_id, ad_source, campaign_id,
-          created_at, updated_at, expires_at, request_expires_at
+          created_at, updated_at, expires_at, request_expires_at, promo_code
         ) VALUES (
           @order_id, @user_id, @stripe_session_id, @stripe_subscription_id,
           @stripe_customer_id, @stripe_customer_email, @status, @plan, @amount, @currency,
           @payment_method, @platform, @client_ref, @request_id, @ad_source, @campaign_id,
-          @created_at, @updated_at, @expires_at, @request_expires_at
+          @created_at, @updated_at, @expires_at, @request_expires_at, @promo_code
         )
       `)
 

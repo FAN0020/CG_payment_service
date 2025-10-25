@@ -12,7 +12,6 @@ import { initializeHandlers } from './handlers/index.js'
 import { registerPaymentRoutes } from './routes/payment.js'
 import { registerWebhookRoutes } from './routes/webhook.js'
 import { registerMainlineApiRoutes } from './routes/mainline-api.js'
-import { registerPromoRoutes } from './routes/promo.js'
 import { generateRequestId } from './lib/api-response.js'
 import { initializeEncryption } from './lib/encryption.js'
 import { initializeMainlineNotifier } from './lib/mainline-notifier.js'
@@ -170,9 +169,6 @@ async function main() {
       baseUrl: config.baseUrl,
       isProduction: !!config.isProduction
     })
-
-    // Register promo code routes
-    await registerPromoRoutes(fastify, db)
 
     logger.info('Routes registered')
 

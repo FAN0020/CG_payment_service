@@ -149,7 +149,6 @@ export async function registerPaymentRoutes(
         product_id,
         payment_method,
         customer_email,
-        promo_code,
         platform,
         client_ref
       } = validationResult.data
@@ -182,59 +181,14 @@ export async function registerPaymentRoutes(
       // Fetch amount from Stripe using price ID
       const stripe = stripeManager.getInstance()
       const price = await stripe.prices.retrieve(productConfig.priceId)
-      const originalAmount = price.unit_amount ? price.unit_amount / 100 : 0 // Convert from cents to dollars
-      
-      // ========== PROMO CODE PROCESSING ==========
-      let finalAmount = originalAmount
-      let discountAmount = 0
-      let promoCodeData = null
-      
-      if (promo_code) {
-        const sanitizedCode = promo_code.trim().toUpperCase()
-        
-        // Validate promo code
-        if (!db.isPromoCodeValid(sanitizedCode)) {
-          throw new ValidationError('Invalid or expired promo code')
-        }
-        
-        // Get promo code details
-        const promoCode = db.getPromoCode(sanitizedCode)
-        if (!promoCode) {
-          throw new ValidationError('Promo code not found')
-        }
-        
-        // Calculate discount
-        discountAmount = db.calculatePromoDiscount(sanitizedCode, originalAmount)
-        finalAmount = Math.max(0, originalAmount - discountAmount)
-        
-        promoCodeData = {
-          code: sanitizedCode,
-          discount_type: promoCode.discount_type,
-          discount_value: promoCode.discount_value,
-          discount_amount: discountAmount,
-          description: promoCode.description
-        }
-        
-        logger.info('Promo code applied', {
-          requestId,
-          userId,
-          promoCode: sanitizedCode,
-          originalAmount,
-          discountAmount,
-          finalAmount,
-          promoCodeData
-        })
-      }
+      const amount = price.unit_amount ? price.unit_amount / 100 : 0 // Convert from cents to dollars
 
       logger.info('Create subscription request', {
         requestId,
         userId,
         productId,
         currency: productConfig.currency,
-        originalAmount,
-        finalAmount,
-        discountAmount,
-        promoCode: promo_code,
+        amount,
         idempotencyKey: idempotency_key
       })
       
@@ -353,14 +307,11 @@ export async function registerPaymentRoutes(
           userId,
           stripeCustomerEmail: customerEmail,  // From request body or JWT
           plan: `${productId}_${productConfig.currency}`,
-          amount: finalAmount, // Use final amount after promo code discount
+          amount: amount, // Use amount fetched from Stripe
           currency: productConfig.currency,
           paymentMethod,
           platform,
-          clientRef: client_ref,
-          promoCode: promo_code,
-          originalAmount: originalAmount,
-          discountAmount: discountAmount
+          clientRef: client_ref
         },
         userId
       )

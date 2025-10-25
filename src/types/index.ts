@@ -49,9 +49,6 @@ export interface SubscriptionOrder {
   updated_at: number
   expires_at?: number
   request_expires_at?: number          // Request ID expiration timestamp
-  // TODO: Remove after testing period
-  test_activated?: boolean              // Flag for test-activated orders
-  activation_code?: string             // Activation code used for test activation
 }
 
 export interface PaymentEvent {
@@ -133,9 +130,6 @@ export const CreateSubscriptionRequestSchema = z.object({
   // Metadata for tracking/debugging
   platform: z.enum(['web', 'ios', 'android']).optional(),
   client_ref: z.string().optional(),
-  
-  // Promo code
-  promo_code: z.string().optional(),
 })
 
 export const VerifySubscriptionRequestSchema = z.object({

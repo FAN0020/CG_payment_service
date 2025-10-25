@@ -2,7 +2,6 @@ import Database from 'better-sqlite3'
 import { SubscriptionOrder, PaymentEvent, DatabaseError } from '../types/index.js'
 import { logger } from './logger.js'
 import { getEncryptionManager } from './encryption.js'
-import { ActivationCode, ActivationCodeStats } from './activation.js'
 
 export class PaymentDatabase {
   private db: Database.Database
@@ -266,6 +265,22 @@ export class PaymentDatabase {
       throw e
     }
 
+    // Create user_credits table for credits-based ad integration
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS user_credits (
+          user_id TEXT PRIMARY KEY,
+          credits_balance INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `)
+      logger.info('User credits table created successfully')
+    } catch (e) {
+      logger.error('Failed to create user_credits table:', e)
+      throw e
+    }
+
     // Verify table structure before creating indexes
     try {
       const tableInfo = this.db.prepare("PRAGMA table_info(promo_codes)").all()
@@ -288,10 +303,12 @@ export class PaymentDatabase {
         CREATE INDEX IF NOT EXISTS idx_promo_codes_used_by ON promo_codes(used_by);
         CREATE INDEX IF NOT EXISTS idx_promo_codes_is_used ON promo_codes(is_used);
         CREATE INDEX IF NOT EXISTS idx_promo_codes_expires ON promo_codes(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_user_credits_balance ON user_credits(credits_balance);
+        CREATE INDEX IF NOT EXISTS idx_user_credits_updated ON user_credits(updated_at);
       `)
-      logger.info('Promo codes indexes created successfully')
+      logger.info('Promo codes and user credits indexes created successfully')
     } catch (e) {
-      logger.error('Failed to create promo_codes indexes:', e)
+      logger.error('Failed to create promo_codes and user_credits indexes:', e)
       throw e
     }
 
@@ -924,7 +941,7 @@ export class PaymentDatabase {
    * Get activation code statistics
    * TODO: Remove after testing period
    */
-  getActivationCodeStats(): ActivationCodeStats {
+  getActivationCodeStats(): { total: number; used: number; available: number } {
     try {
       const totalStmt = this.db.prepare('SELECT COUNT(*) as count FROM activation_codes')
       const usedStmt = this.db.prepare('SELECT COUNT(*) as count FROM activation_codes WHERE is_used = TRUE')
@@ -939,6 +956,113 @@ export class PaymentDatabase {
       }
     } catch (error: any) {
       throw new DatabaseError(`Failed to get activation code stats: ${error.message}`)
+    }
+  }
+
+  // ============================================================================
+  // User Credits Management (for Ad Service Integration)
+  // ============================================================================
+
+  /**
+   * Get user credits balance
+   */
+  getUserCredits(userId: string): { credits_balance: number; is_premium: boolean } {
+    try {
+      // Get credits balance
+      const creditsStmt = this.db.prepare(`
+        SELECT credits_balance FROM user_credits WHERE user_id = ?
+      `)
+      const creditsResult = creditsStmt.get(userId) as { credits_balance: number } | undefined
+      const creditsBalance = creditsResult?.credits_balance || 0
+
+      // Check if user has active subscription (premium)
+      const premiumStmt = this.db.prepare(`
+        SELECT COUNT(*) as count FROM subscription_orders 
+        WHERE user_id = ? AND status = 'active' AND expires_at > ?
+      `)
+      const premiumResult = premiumStmt.get(userId, Date.now()) as { count: number }
+      const isPremium = premiumResult.count > 0
+
+      return {
+        credits_balance: creditsBalance,
+        is_premium: isPremium
+      }
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get user credits: ${error.message}`)
+    }
+  }
+
+  /**
+   * Initialize user credits (create record if doesn't exist)
+   */
+  initializeUserCredits(userId: string): void {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR IGNORE INTO user_credits (user_id, credits_balance, created_at, updated_at)
+        VALUES (?, 0, ?, ?)
+      `)
+      const now = Date.now()
+      stmt.run(userId, now, now)
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to initialize user credits: ${error.message}`)
+    }
+  }
+
+  /**
+   * Deduct credits from user account
+   */
+  deductCredits(userId: string, amount: number): boolean {
+    try {
+      // Initialize user credits if they don't exist
+      this.initializeUserCredits(userId)
+
+      const stmt = this.db.prepare(`
+        UPDATE user_credits 
+        SET credits_balance = credits_balance - ?, updated_at = ?
+        WHERE user_id = ? AND credits_balance >= ?
+      `)
+      const result = stmt.run(amount, Date.now(), userId, amount)
+      return result.changes > 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to deduct credits: ${error.message}`)
+    }
+  }
+
+  /**
+   * Add credits to user account
+   */
+  addCredits(userId: string, amount: number): void {
+    try {
+      // Initialize user credits if they don't exist
+      this.initializeUserCredits(userId)
+
+      const stmt = this.db.prepare(`
+        UPDATE user_credits 
+        SET credits_balance = credits_balance + ?, updated_at = ?
+        WHERE user_id = ?
+      `)
+      stmt.run(amount, Date.now(), userId)
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to add credits: ${error.message}`)
+    }
+  }
+
+  /**
+   * Set credits balance (for admin operations)
+   */
+  setCredits(userId: string, amount: number): void {
+    try {
+      // Initialize user credits if they don't exist
+      this.initializeUserCredits(userId)
+
+      const stmt = this.db.prepare(`
+        UPDATE user_credits 
+        SET credits_balance = ?, updated_at = ?
+        WHERE user_id = ?
+      `)
+      stmt.run(amount, Date.now(), userId)
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to set credits: ${error.message}`)
     }
   }
 

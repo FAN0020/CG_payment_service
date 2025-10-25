@@ -13,9 +13,13 @@ import { registerPaymentRoutes } from './routes/payment.js'
 import { registerWebhookRoutes } from './routes/webhook.js'
 import { registerMainlineApiRoutes } from './routes/mainline-api.js'
 import { registerPromoRoutes } from './routes/promo.js'
+import { registerCreditsRoutes } from './routes/credits.js'
 import { generateRequestId } from './lib/api-response.js'
 import { initializeEncryption } from './lib/encryption.js'
 import { initializeMainlineNotifier } from './lib/mainline-notifier.js'
+// import { registerAdRoutes } from '../../CG_ad_service/src/routes/index.js'
+// import { initDatabase as initAdDatabase, closeDatabase as closeAdDatabase } from '../../CG_ad_service/src/lib/database.js'
+// import { initGoogleAds } from '../../CG_ad_service/src/lib/google-ads.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -82,9 +86,19 @@ async function main() {
     initializeMainlineNotifier(config.mainlineBaseUrl, config.mainlineApiKey)
     logger.info('Mainline notifier initialized')
 
-    // Initialize database
+    // Initialize ad service database
+    logger.info('Initializing ad service database...')
+    // await initAdDatabase()
+    logger.info('Ad service database initialized')
+
+    // Initialize Google Ads
+    logger.info('Initializing Google Ads...')
+    // await initGoogleAds()
+    logger.info('Google Ads initialized')
+
+    // Initialize payment database
     const db = new PaymentDatabase(config.dbPath)
-    logger.info('Database initialized')
+    logger.info('Payment database initialized')
 
     // Initialize internal billing handlers
     initializeHandlers(db)
@@ -117,6 +131,10 @@ async function main() {
       decorateReply: true  // Enable sendFile method on reply
     })
 
+    // Decorate fastify with database and JWT manager
+    fastify.decorate('paymentDb', db)
+    fastify.decorate('jwtManager', jwtManager)
+
     // Serve index.html at /payment route
     fastify.get('/payment', async (request, reply) => {
       return reply.sendFile('index.html')
@@ -130,6 +148,71 @@ async function main() {
     // Serve cancel page
     fastify.get('/payment/cancel', async (request, reply) => {
       return reply.sendFile('cancel.html')
+    })
+
+    // Root endpoint with integrated service information
+    fastify.get('/', async (request, reply) => {
+      reply.type('text/html').send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>ClassGuru Integrated Service</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              max-width: 1000px;
+              margin: 50px auto;
+              padding: 20px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+            }
+            h1 { font-size: 2.5em; margin-bottom: 10px; }
+            .subtitle { font-size: 1.2em; opacity: 0.9; margin-bottom: 30px; }
+            .info-box { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .endpoint { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; }
+            a { color: #50E3C2; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            .service-section { margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>🎯 ClassGuru Integrated Service</h1>
+          <p class="subtitle">Payment & Ad Service Integration</p>
+          
+          <div class="info-box">
+            <h2>Status: ✅ Running</h2>
+            <p>Port: ${config.port}</p>
+            <p>Mode: ${config.isProduction ? '🌐 Production' : '🔧 Development'}</p>
+          </div>
+          
+          <div class="service-section">
+            <h2>💳 Payment Service</h2>
+            <div class="endpoint">POST /api/payment/create-order - Create payment order</div>
+            <div class="endpoint">GET /api/payment/query-subscription - Query subscription</div>
+            <div class="endpoint">POST /api/payment/update-subscription - Update subscription</div>
+            <div class="endpoint">POST /api/webhook/stripe - Stripe webhook</div>
+            <div class="endpoint">GET /api/credits/balance - Get credits balance</div>
+            <div class="endpoint">POST /api/credits/consume - Consume credits</div>
+          </div>
+          
+          <div class="service-section">
+            <h2>📡 Ad Service</h2>
+            <div class="endpoint">GET /api/ads/health - Health check</div>
+            <div class="endpoint">GET /api/ads/config - AdSense configuration</div>
+            <div class="endpoint">POST /api/ads/request - Request an ad</div>
+            <div class="endpoint">POST /api/ads/click - Track ad click</div>
+            <div class="endpoint">GET /api/ads/metrics - Get ad metrics (auth required)</div>
+          </div>
+          
+          <div class="info-box">
+            <h2>🔗 Quick Links</h2>
+            <p><a href="/api/ads/health" target="_blank">Ad Service Health</a></p>
+            <p><a href="/api/ads/config" target="_blank">AdSense Config</a></p>
+            <p><a href="/payment" target="_blank">Payment Demo</a></p>
+          </div>
+        </body>
+        </html>
+      `)
     })
 
     // Add raw body support for webhook signature verification
@@ -174,6 +257,12 @@ async function main() {
     // Register promo code routes
     await registerPromoRoutes(fastify, db)
 
+    // Register credits routes for ad service integration
+    await registerCreditsRoutes(fastify)
+
+    // Register ad service routes
+    // await registerAdRoutes(fastify)
+
     logger.info('Routes registered')
 
     // Start server
@@ -201,6 +290,7 @@ async function main() {
       clearInterval(cleanupInterval)
       await fastify.close()
       db.close()
+      // await closeAdDatabase()
       logger.info('Shutdown complete')
       process.exit(0)
     }

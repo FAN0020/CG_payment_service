@@ -539,7 +539,316 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ============================================================================
+// Promo Code Functionality
+// ============================================================================
 
+// Global promo code variables
+let appliedPromoCode = null;
+let promoDiscount = 0;
+let promoCodeData = null;
 
+// Validate promo code with backend
+async function validatePromoCode(code) {
+  try {
+    console.log('[PROMO] Validating promo code:', code);
+    
+    const response = await fetch(`${API_BASE_URL}/api/promo/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ code: code })
+    });
+    
+    const result = await response.json();
+    console.log('[PROMO] Validation response:', result);
+    
+    if (result.success) {
+      return result.data;
+    } else {
+      throw new Error(result.message || 'Invalid promo code');
+    }
+  } catch (error) {
+    console.error('[PROMO] Validation failed:', error);
+    throw error;
+  }
+}
+
+// Apply promo code
+async function applyPromoCode() {
+  const promoInput = document.getElementById('promo-code-input');
+  const applyBtn = document.getElementById('apply-promo-btn');
+  const statusDiv = document.getElementById('promo-status');
+  
+  if (!promoInput || !applyBtn || !statusDiv) {
+    console.error('[PROMO] Required elements not found');
+    return;
+  }
+  
+  const code = promoInput.value.trim().toUpperCase();
+  
+  if (!code) {
+    showPromoStatus('Please enter a promo code', 'error');
+    return;
+  }
+  
+  // Disable button and show loading
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Validating...';
+  showPromoStatus('Validating promo code...', 'loading');
+  
+  try {
+    const promoData = await validatePromoCode(code);
+    
+    // Store promo code data
+    appliedPromoCode = code;
+    promoCodeData = promoData;
+    promoDiscount = promoData.discount_amount;
+    
+    // Show success message
+    showPromoStatus(`✅ ${promoData.description} - $${promoData.discount_amount.toFixed(2)} discount applied!`, 'success');
+    
+    // Update pricing display
+    updatePricingWithDiscount();
+    
+    console.log('[PROMO] Promo code applied successfully:', promoData);
+    
+  } catch (error) {
+    console.error('[PROMO] Failed to apply promo code:', error);
+    showPromoStatus(`❌ ${error.message}`, 'error');
+    
+    // Reset promo code data
+    appliedPromoCode = null;
+    promoCodeData = null;
+    promoDiscount = 0;
+  } finally {
+    // Re-enable button
+    applyBtn.disabled = false;
+    applyBtn.textContent = 'Apply';
+  }
+}
+
+// Show promo status message
+function showPromoStatus(message, type) {
+  const statusDiv = document.getElementById('promo-status');
+  if (!statusDiv) return;
+  
+  statusDiv.textContent = message;
+  statusDiv.style.color = type === 'error' ? '#ff4444' : 
+                         type === 'success' ? '#22c55e' : 
+                         type === 'loading' ? '#f59e0b' : '#666';
+}
+
+// Update pricing display with discount
+function updatePricingWithDiscount() {
+  if (!promoCodeData) return;
+  
+  // Update each plan's pricing display
+  const plans = ['daily-plan', 'weekly-plan', 'monthly-plan'];
+  
+  plans.forEach(planKey => {
+    const planCard = document.querySelector(`[data-plan="${planKey}"]`)?.closest('.pricing-card');
+    if (!planCard) return;
+    
+    const priceElement = planCard.querySelector('.price-amount');
+    if (!priceElement) return;
+    
+    // Get original price (you might need to store this)
+    const originalPrice = parseFloat(priceElement.textContent);
+    if (isNaN(originalPrice)) return;
+    
+    // Calculate discounted price
+    let discountedPrice = originalPrice;
+    if (promoCodeData.discount_type === 'percentage') {
+      discountedPrice = originalPrice * (1 - promoCodeData.discount_value / 100);
+    } else if (promoCodeData.discount_type === 'fixed_amount') {
+      discountedPrice = Math.max(0, originalPrice - promoCodeData.discount_value);
+    }
+    
+    // Update display
+    priceElement.textContent = discountedPrice.toFixed(2);
+    
+    // Add discount indicator
+    const discountIndicator = planCard.querySelector('.discount-indicator');
+    if (discountIndicator) {
+      discountIndicator.remove();
+    }
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'discount-indicator';
+    indicator.style.cssText = `
+      background: #22c55e;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 8px;
+      display: inline-block;
+    `;
+    indicator.textContent = `🎉 ${promoCodeData.description}`;
+    
+    const priceContainer = planCard.querySelector('.plan-price');
+    if (priceContainer) {
+      priceContainer.appendChild(indicator);
+    }
+  });
+}
+
+// Remove promo code
+function removePromoCode() {
+  appliedPromoCode = null;
+  promoCodeData = null;
+  promoDiscount = 0;
+  
+  // Clear input
+  const promoInput = document.getElementById('promo-code-input');
+  if (promoInput) promoInput.value = '';
+  
+  // Clear status
+  showPromoStatus('', '');
+  
+  // Reset pricing display
+  loadCurrentPrices();
+  
+  console.log('[PROMO] Promo code removed');
+}
+
+// Initialize promo code functionality
+function initializePromoCode() {
+  const applyBtn = document.getElementById('apply-promo-btn');
+  const promoInput = document.getElementById('promo-code-input');
+  
+  if (applyBtn) {
+    applyBtn.addEventListener('click', applyPromoCode);
+  }
+  
+  if (promoInput) {
+    // Allow Enter key to apply promo code
+    promoInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        applyPromoCode();
+      }
+    });
+  }
+  
+  console.log('[PROMO] Promo code functionality initialized');
+}
+
+// ============================================================================
+// Enhanced Payment Handler with Promo Code Support
+// ============================================================================
+
+// Override the original handlePayment function to include promo code
+const originalHandlePayment = handlePayment;
+
+async function handlePaymentWithPromo(event) {
+  const button = event.currentTarget;
+  const productId = button.dataset.plan;
+  const planType = productId.replace('-plan', '');
+  
+  console.log('\n' + '='.repeat(80));
+  console.log(`[PAYMENT] Initiating payment for: ${productId}`);
+  if (appliedPromoCode) {
+    console.log(`[PAYMENT] With promo code: ${appliedPromoCode} (${promoDiscount} discount)`);
+  }
+  console.log('='.repeat(80));
+  
+  // Disable button and show loading
+  button.disabled = true;
+  const originalText = button.innerHTML;
+  button.innerHTML = '<span class="loading-spinner"></span> Processing...';
+  
+  // Hide any previous errors
+  hideError(planType);
+  
+  try {
+    // Get JWT token
+    const jwt = await getJWTToken();
+    
+    if (!jwt) {
+      throw new Error('JWT token is required to proceed with payment');
+    }
+    
+    // Generate idempotency key
+    const idempotencyKey = generateUUID();
+    
+    // Prepare request payload
+    const payload = {
+      jwt: jwt,
+      idempotency_key: idempotencyKey,
+      product_id: productId,
+      currency: button.dataset.currency || 'SGD',
+      platform: 'web',
+      client_ref: 'payment_demo_v1'
+    };
+    
+    // Add promo code if applied
+    if (appliedPromoCode && promoCodeData) {
+      payload.promo_code = appliedPromoCode;
+      console.log('[PAYMENT] Including promo code in request:', appliedPromoCode);
+    }
+    
+    console.log('[PAYMENT] Request Payload:');
+    console.log('  Product ID:', payload.product_id);
+    console.log('  Currency:', payload.currency);
+    console.log('  Platform:', payload.platform);
+    console.log('  Idempotency Key:', payload.idempotency_key);
+    console.log('  JWT (first 20 chars):', payload.jwt.substring(0, 20) + '...');
+    if (payload.promo_code) {
+      console.log('  Promo Code:', payload.promo_code);
+    }
+    
+    console.log('\n[PAYMENT] Sending request to:', PAYMENT_ENDPOINT);
+    
+    // Call payment API
+    const startTime = Date.now();
+    const response = await fetch(PAYMENT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    const responseTime = Date.now() - startTime;
+    console.log(`[PAYMENT] Response received in ${responseTime}ms`);
+    
+    const data = await response.json();
+    
+    console.log('[PAYMENT] Response Status:', response.status);
+    console.log('[PAYMENT] Response Data:', JSON.stringify(data, null, 2));
+    
+    if (response.ok && data.status_code === 200) {
+      console.log('[PAYMENT] Payment session created successfully');
+      console.log('[PAYMENT] Checkout URL:', data.data.checkout_url);
+      
+      // Redirect to Stripe checkout
+      window.location.href = data.data.checkout_url;
+    } else {
+      throw new Error(data.message || `Payment failed with status ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('[PAYMENT] Payment failed:', error);
+    showError(planType, error.message);
+  } finally {
+    // Re-enable button
+    button.disabled = false;
+    button.innerHTML = originalText;
+  }
+}
+
+// Replace the original handlePayment with the enhanced version
+window.handlePayment = handlePaymentWithPromo;
+
+// Initialize promo code functionality when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // ... existing initialization code ...
+  
+  // Initialize promo code functionality
+  initializePromoCode();
+});
 
 

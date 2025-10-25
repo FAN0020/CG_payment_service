@@ -14,6 +14,7 @@ import { logger } from '../lib/logger.js'
 import { nanoid } from 'nanoid'
 import { getProductConfig } from '../config/products.js'
 import { generateIdempotencyKey } from '../utils/hash.js'
+import { ActivationManager } from '../lib/activation.js'
 
 interface PaymentConfig {
   priceId: string
@@ -55,7 +56,12 @@ export async function registerMainlineApiRoutes(
 
     try {
       // Validate request body
-      const body = request.body as { uid?: string; ad_source?: string; campaign_id?: string }
+      const body = request.body as { 
+        uid?: string; 
+        ad_source?: string; 
+        campaign_id?: string;
+        activation_code?: string; // TODO: Remove after testing period
+      }
       
       if (!body.uid) {
         return reply.code(400).send(validationErrorResponse('uid is required', requestId))
@@ -70,13 +76,84 @@ export async function registerMainlineApiRoutes(
       const userId = body.uid
       const adSource = body.ad_source
       const campaignId = body.campaign_id
+      const activationCode = body.activation_code // TODO: Remove after testing period
 
       logger.info('Create session request', {
         requestId,
         userId,
         adSource,
-        campaignId
+        campaignId,
+        hasActivationCode: !!activationCode // TODO: Remove after testing period
       })
+
+      // TODO: Remove after testing period
+      // TEMPORARY FEATURE: Check for activation code (only in non-production)
+      if (ActivationManager.isEnabled() && activationCode) {
+        const sanitizedCode = ActivationManager.sanitizeCode(activationCode)
+        
+        // Validate code format
+        if (!ActivationManager.validateFormat(sanitizedCode)) {
+          logger.warn('Invalid activation code format', {
+            requestId,
+            userId,
+            code: sanitizedCode
+          })
+          // Continue with normal Stripe flow
+        } else if (db.isActivationCodeValid(sanitizedCode)) {
+          // Code is valid and available - bypass Stripe payment
+          logger.info('[TEST-ACTIVATED] Order created using activation code', {
+            userId,
+            requestId,
+            code: sanitizedCode
+          })
+          
+          // Generate order ID
+          const orderId = `order_${nanoid(12)}`
+          
+          // Create order with test_activated flag
+          const order = db.createOrder({
+            order_id: orderId,
+            user_id: userId,
+            status: 'active', // Use existing 'active' status
+            plan: ActivationManager.getDefaultTestPlan(), // Hardcoded test plan
+            amount: ActivationManager.getDefaultTestAmount(), // Free for test activation
+            currency: 'SGD',
+            request_id: requestId,
+            ad_source: adSource,
+            campaign_id: campaignId,
+            test_activated: true, // TODO: Remove after testing period
+            activation_code: sanitizedCode, // TODO: Remove after testing period
+            request_expires_at: Date.now() + (15 * 60 * 1000) // 15 minutes
+          })
+          
+          // Redeem the activation code
+          const redeemed = db.redeemActivationCode(sanitizedCode, userId)
+          if (!redeemed) {
+            logger.error('Failed to redeem activation code', {
+              requestId,
+              userId,
+              code: sanitizedCode
+            })
+            throw new Error('Failed to redeem activation code')
+          }
+          
+          return reply.code(200).send(successResponse('Session created (test-activated)', {
+            checkoutUrl: null, // No Stripe checkout needed
+            requestId,
+            orderId,
+            sessionId: null,
+            testActivated: true, // TODO: Remove after testing period
+            activationCode: sanitizedCode // TODO: Remove after testing period
+          }, requestId))
+        } else {
+          logger.warn('Activation code invalid or already used', {
+            requestId,
+            userId,
+            code: sanitizedCode
+          })
+          // Continue with normal Stripe flow
+        }
+      }
 
       // Get default product configuration
       const productConfig = getProductConfig('weekly-plan')
@@ -239,7 +316,10 @@ export async function registerMainlineApiRoutes(
         plan: order.plan,
         error: error,
         createdAt: order.created_at,
-        updatedAt: order.updated_at
+        updatedAt: order.updated_at,
+        // TODO: Remove after testing period
+        testActivated: order.test_activated || false,
+        activationCode: order.activation_code || undefined
       }, requestId))
 
     } catch (error: any) {

@@ -1,0 +1,18 @@
+# This is an example of what your deploy_key file should look like
+# Replace this with your actual private SSH key content
+# 
+# To generate a deploy key:
+# 1. Generate SSH key pair: ssh-keygen -t ed25519 -f deploy_key -C "deploy-key"
+# 2. Add the public key (deploy_key.pub) to your GitHub repository settings
+# 3. Copy the private key content to this file (without .pub extension)
+#
+# Example private key format:
+# -----BEGIN OPENSSH PRIVATE KEY-----
+# b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+# QyNTUxOQAAACD... (rest of key content)
+# -----END OPENSSH PRIVATE KEY-----
+#
+# IMPORTANT: 
+# - Never commit the actual deploy_key file to version control
+# - Add deploy_key to .gitignore
+# - Only copy the private key content (not the .pub file)

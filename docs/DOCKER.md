@@ -75,6 +75,7 @@ networks:
 - **Security**: Non-root user execution
 - **Health Check**: Built-in monitoring
 - **Production**: No dev dependencies
+- **SSH Deploy Key**: Clones private GitHub repositories during build
 
 ## 🚀 Docker Compose
 
@@ -138,7 +139,7 @@ docker compose up -d --build
 
 ### Build Commands
 ```bash
-# Build image
+# Build image (requires deploy_key file)
 docker build -f docker/Dockerfile -t classguru-payment-service .
 
 # Build with no cache
@@ -147,6 +148,39 @@ docker build --no-cache -f docker/Dockerfile -t classguru-payment-service .
 # Build and run
 docker compose up -d --build
 ```
+
+### 🔑 SSH Deploy Key Setup
+
+**Prerequisites:**
+
+**Option 1: Automated Setup (Recommended)**
+```bash
+cd docker
+./setup-deploy-key.sh
+```
+
+**Option 2: Manual Setup**
+1. **Generate SSH Key Pair:**
+   ```bash
+   ssh-keygen -t ed25519 -f deploy_key -C "deploy-key"
+   ```
+
+2. **Add Public Key to GitHub:**
+   - Copy `deploy_key.pub` content
+   - Go to your GitHub repository → Settings → Deploy keys
+   - Add new deploy key with read access
+
+3. **Place Private Key:**
+   ```bash
+   # Copy the private key to docker directory
+   cp deploy_key docker/deploy_key
+   ```
+
+**Security Notes:**
+- ✅ Private key is automatically cleaned up after build
+- ✅ Key has restricted permissions (600)
+- ✅ Key is excluded from version control
+- ✅ Only used during build process
 
 ### Debug Commands
 ```bash
@@ -331,6 +365,8 @@ docker run --rm -d --name payment-service \
 - **Docker Compose**: `docker/docker-compose.yml`
 - **Environment**: `env.txt`
 - **Build Script**: `docker/build.sh`
+- **SSH Setup**: `docker/setup-deploy-key.sh`
+- **Deploy Key Example**: `docker/deploy_key.example`
 
 ---
 

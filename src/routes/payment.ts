@@ -374,7 +374,7 @@ export async function registerPaymentRoutes(
       logger.debug('Order created', { orderId })
 
       // ========== REDEEM PROMO CODE ==========
-      if (promo_code && promoCodeData) {
+      if (promo_code && promoCodeData && sanitizedCode) {
         const redeemed = db.redeemPromoCode(sanitizedCode, userId)
         if (redeemed) {
           logger.info('Promo code redeemed successfully', {

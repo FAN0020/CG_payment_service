@@ -1,8 +1,8 @@
 # Use Node.js 20 Alpine for smaller image size
 FROM node:20-alpine
 
-# Install dumb-init, build tools, and SSH client for Git operations
-RUN apk add --no-cache dumb-init python3 make g++ openssh-client git
+# Install dumb-init and build tools for native dependencies
+RUN apk add --no-cache dumb-init python3 make g++
 
 # Create app user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -11,27 +11,9 @@ RUN addgroup -g 1001 -S nodejs && \
 # Set working directory
 WORKDIR /app
 
-# Copy SSH deploy key and set up SSH configuration
-COPY deploy_key /tmp/deploy_key
-RUN chmod 600 /tmp/deploy_key && \
-    mkdir -p /root/.ssh && \
-    ssh-keyscan github.com >> /root/.ssh/known_hosts && \
-    eval "$(ssh-agent -s)" && \
-    ssh-add /tmp/deploy_key
-
-# Clone private repository
-RUN git clone git@github.com:FAN0020/payment-service.git /tmp/private-repo
-
-# Copy package files from cloned repository
-COPY --from=/tmp/private-repo /tmp/private-repo/package*.json ./
-
 # Install only production dependencies
+COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
-
-# Clean up SSH key and temporary files
-RUN rm -f /tmp/deploy_key && \
-    rm -rf /tmp/private-repo && \
-    rm -rf /root/.ssh
 
 # Copy compiled output from dist directory
 COPY ../dist ./dist

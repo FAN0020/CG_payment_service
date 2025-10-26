@@ -1,0 +1,54 @@
+# Source code (exclude from Docker image)
+src/
+*.ts
+*.tsx
+*.jsx
+
+# Development files
+tsconfig.json
+*.log
+logs/
+node_modules/
+.git/
+.gitignore
+
+# Test files
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Documentation
+docs/
+README.md
+*.md
+
+# Scripts (not needed in production)
+scripts/
+
+# Frontend files (if not needed in production)
+frontend/
+
+# Development environment files
+.env.local
+.env.development
+.env.test
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts that shouldn't be in image
+*.map
+*.d.ts.map
+
+# Temporary files
+tmp/
+temp/

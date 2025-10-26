@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  payment-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: classguru-payment-service
+    ports:
+      - "8790:8790"
+    environment:
+      - NODE_ENV=production
+      - PORT=8790
+    env_file:
+      - ../env.txt
+    volumes:
+      # Persist database data
+      - payment_data:/app/data
+      # Persist logs
+      - payment_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8790/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - payment-network
+
+volumes:
+  payment_data:
+    driver: local
+  payment_logs:
+    driver: local
+
+networks:
+  payment-network:
+    driver: bridge

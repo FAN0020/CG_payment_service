@@ -4,9 +4,11 @@ import { JWTManager } from '../lib/jwt.js'
 import { logger } from '../lib/logger.js'
 import { generateRequestId } from '../lib/api-response.js'
 
-export async function registerCreditsRoutes(fastify: FastifyInstance) {
-  const db = fastify.paymentDb as PaymentDatabase
-  const jwtManager = fastify.jwtManager as JWTManager
+export async function registerCreditsRoutes(
+  fastify: FastifyInstance,
+  jwtManager: JWTManager,
+  db: PaymentDatabase
+) {
 
   // Health check endpoint
   fastify.get('/api/credits/health', async (request, reply) => {
@@ -37,9 +39,9 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
       }
 
       const token = authHeader.substring(7)
-      const decoded = jwtManager.verifyToken(token)
+      const decoded = jwtManager.verify(token)
       
-      if (!decoded || !decoded.userId) {
+      if (!decoded || !decoded.sub) {
         logger.warn(`[${requestId}] Invalid token`)
         return reply.status(401).send({
           error: 'Invalid token',
@@ -47,7 +49,7 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
         })
       }
 
-      const userId = decoded.userId
+      const userId = decoded.sub
       logger.info(`[${requestId}] Getting credits status for user: ${userId}`)
 
       // Check if user has active subscription
@@ -64,8 +66,8 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
         requestId
       }
 
-    } catch (error) {
-      logger.error(`[${requestId}] Error getting credits status:`, error)
+    } catch (error: any) {
+      logger.error(`[${requestId}] Error getting credits status:`, { error: error.message })
       return reply.status(500).send({
         error: 'Internal server error',
         requestId
@@ -89,9 +91,9 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
       }
 
       const token = authHeader.substring(7)
-      const decoded = jwtManager.verifyToken(token)
+      const decoded = jwtManager.verify(token)
       
-      if (!decoded || !decoded.userId) {
+      if (!decoded || !decoded.sub) {
         logger.warn(`[${requestId}] Invalid token`)
         return reply.status(401).send({
           error: 'Invalid token',
@@ -99,7 +101,7 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
         })
       }
 
-      const userId = decoded.userId
+      const userId = decoded.sub
       const { amount, reason } = request.body as { amount: number; reason: string }
 
       if (!amount || amount <= 0) {
@@ -137,8 +139,8 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
         requestId
       }
 
-    } catch (error) {
-      logger.error(`[${requestId}] Error deducting credits:`, error)
+    } catch (error: any) {
+      logger.error(`[${requestId}] Error deducting credits:`, { error: error.message })
       return reply.status(500).send({
         error: 'Internal server error',
         requestId
@@ -162,9 +164,9 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
       }
 
       const token = authHeader.substring(7)
-      const decoded = jwtManager.verifyToken(token)
+      const decoded = jwtManager.verify(token)
       
-      if (!decoded || !decoded.userId) {
+      if (!decoded || !decoded.sub) {
         logger.warn(`[${requestId}] Invalid token`)
         return reply.status(401).send({
           error: 'Invalid token',
@@ -172,7 +174,7 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
         })
       }
 
-      const userId = decoded.userId
+      const userId = decoded.sub
       const { amount, reason } = request.body as { amount: number; reason: string }
 
       if (!amount || amount <= 0) {
@@ -198,8 +200,8 @@ export async function registerCreditsRoutes(fastify: FastifyInstance) {
         requestId
       }
 
-    } catch (error) {
-      logger.error(`[${requestId}] Error rewarding credits:`, error)
+    } catch (error: any) {
+      logger.error(`[${requestId}] Error rewarding credits:`, { error: error.message })
       return reply.status(500).send({
         error: 'Internal server error',
         requestId

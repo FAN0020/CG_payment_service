@@ -258,7 +258,7 @@ async function main() {
     await registerPromoRoutes(fastify, db)
 
     // Register credits routes for ad service integration
-    await registerCreditsRoutes(fastify)
+    await registerCreditsRoutes(fastify, jwtManager, db)
 
     // Register ad service routes
     // await registerAdRoutes(fastify)

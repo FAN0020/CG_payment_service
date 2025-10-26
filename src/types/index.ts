@@ -45,6 +45,7 @@ export interface SubscriptionOrder {
   request_id?: string                  // Short-lived request ID (15 min TTL)
   ad_source?: string                   // Advertising source
   campaign_id?: string                 // Campaign identifier
+  promo_code?: string                  // Promo code used
   created_at: number
   updated_at: number
   expires_at?: number
@@ -52,6 +53,14 @@ export interface SubscriptionOrder {
   // TODO: Remove after testing period
   test_activated?: boolean              // Flag for test-activated orders
   activation_code?: string             // Activation code used for test activation
+}
+
+export interface ActivationCode {
+  code: string
+  used: boolean
+  used_by?: string
+  used_at?: number
+  created_at: number
 }
 
 export interface PaymentEvent {

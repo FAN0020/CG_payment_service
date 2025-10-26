@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { SubscriptionOrder, PaymentEvent, DatabaseError } from '../types/index.js'
+import { SubscriptionOrder, PaymentEvent, DatabaseError, ActivationCode } from '../types/index.js'
 import { logger } from './logger.js'
 import { getEncryptionManager } from './encryption.js'
 
@@ -76,7 +76,7 @@ export class PaymentDatabase {
         logger.info('request_id column already exists in subscription_orders')
       }
     } catch (e) {
-      logger.error('Failed to add request_id column:', e)
+      logger.error('Failed to add request_id column:', { error: e })
       throw e
     }
     
@@ -129,7 +129,7 @@ export class PaymentDatabase {
       logger.info('subscription_orders table structure:', tableInfo)
       
       const hasRequestIdColumn = tableInfo.some((col: any) => col.name === 'request_id')
-      logger.info('request_id column exists:', hasRequestIdColumn)
+      logger.info('request_id column exists:', { exists: hasRequestIdColumn })
       
       if (hasRequestIdColumn) {
         this.db.exec(`
@@ -146,7 +146,7 @@ export class PaymentDatabase {
         throw new Error('request_id column not found')
       }
     } catch (e) {
-      logger.error('Failed to create indexes for subscription_orders:', e)
+      logger.error('Failed to create indexes for subscription_orders:', { error: e })
       throw e
     }
 
@@ -261,7 +261,7 @@ export class PaymentDatabase {
       `)
       logger.info('Promo codes table created successfully')
     } catch (e) {
-      logger.error('Failed to create promo_codes table:', e)
+      logger.error('Failed to create promo_codes table:', { error: e })
       throw e
     }
 
@@ -277,7 +277,25 @@ export class PaymentDatabase {
       `)
       logger.info('User credits table created successfully')
     } catch (e) {
-      logger.error('Failed to create user_credits table:', e)
+      logger.error('Failed to create user_credits table:', { error: e })
+      throw e
+    }
+
+    // Create credit_transactions table for transaction history
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS credit_transactions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          reason TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+      `)
+      logger.info('Credit transactions table created successfully')
+    } catch (e) {
+      logger.error('Failed to create credit_transactions table:', { error: e })
       throw e
     }
 
@@ -293,7 +311,7 @@ export class PaymentDatabase {
         throw new Error('used_by column not found')
       }
     } catch (e) {
-      logger.error('Failed to verify table structure:', e)
+      logger.error('Failed to verify table structure:', { error: e })
       throw e
     }
 
@@ -308,7 +326,7 @@ export class PaymentDatabase {
       `)
       logger.info('Promo codes and user credits indexes created successfully')
     } catch (e) {
-      logger.error('Failed to create promo_codes and user_credits indexes:', e)
+      logger.error('Failed to create promo_codes and user_credits indexes:', { error: e })
       throw e
     }
 
@@ -446,6 +464,11 @@ export class PaymentDatabase {
     } catch (error: any) {
       throw new DatabaseError(`Failed to get active subscription: ${error.message}`)
     }
+  }
+
+  // Alias for compatibility with credits API
+  getActiveSubscription(userId: string): SubscriptionOrder | null {
+    return this.getActiveSubscriptionByUserId(userId)
   }
 
   getOrdersByUserId(userId: string): SubscriptionOrder[] {
@@ -831,7 +854,7 @@ export class PaymentDatabase {
    */
   isActivationCodeValid(code: string): boolean {
     const activationCode = this.getActivationCode(code)
-    return activationCode !== null && !activationCode.is_used
+    return activationCode !== null && !activationCode.used
   }
 
   /**
@@ -1009,20 +1032,52 @@ export class PaymentDatabase {
   }
 
   /**
-   * Deduct credits from user account
+   * Get user's current credit balance
    */
-  deductCredits(userId: string, amount: number): boolean {
+  getCreditBalance(userId: string): number {
     try {
       // Initialize user credits if they don't exist
       this.initializeUserCredits(userId)
 
+      const stmt = this.db.prepare('SELECT credits_balance FROM user_credits WHERE user_id = ?')
+      const result = stmt.get(userId) as { credits_balance: number } | undefined
+      return result?.credits_balance ?? 0
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to get credit balance: ${error.message}`)
+    }
+  }
+
+  /**
+   * Deduct credits from user account and record transaction
+   */
+  deductCredits(userId: string, amount: number, reason: string): number {
+    try {
+      // Initialize user credits if they don't exist
+      this.initializeUserCredits(userId)
+
+      // Check if user has sufficient credits
+      const currentBalance = this.getCreditBalance(userId)
+      if (currentBalance < amount) {
+        throw new Error('Insufficient credits')
+      }
+
+      // Record the transaction
+      const transactionStmt = this.db.prepare(`
+        INSERT INTO credit_transactions (user_id, type, amount, reason, created_at)
+        VALUES (?, 'deduct', ?, ?, ?)
+      `)
+      transactionStmt.run(userId, -amount, reason, Date.now())
+
+      // Deduct credits
       const stmt = this.db.prepare(`
         UPDATE user_credits 
         SET credits_balance = credits_balance - ?, updated_at = ?
-        WHERE user_id = ? AND credits_balance >= ?
+        WHERE user_id = ?
       `)
-      const result = stmt.run(amount, Date.now(), userId, amount)
-      return result.changes > 0
+      stmt.run(amount, Date.now(), userId)
+
+      // Return new balance
+      return this.getCreditBalance(userId)
     } catch (error: any) {
       throw new DatabaseError(`Failed to deduct credits: ${error.message}`)
     }
@@ -1044,6 +1099,36 @@ export class PaymentDatabase {
       stmt.run(amount, Date.now(), userId)
     } catch (error: any) {
       throw new DatabaseError(`Failed to add credits: ${error.message}`)
+    }
+  }
+
+  /**
+   * Reward credits to user account and record transaction
+   */
+  rewardCredits(userId: string, amount: number, reason: string): number {
+    try {
+      // Initialize user credits if they don't exist
+      this.initializeUserCredits(userId)
+
+      // Record the transaction
+      const transactionStmt = this.db.prepare(`
+        INSERT INTO credit_transactions (user_id, type, amount, reason, created_at)
+        VALUES (?, 'reward', ?, ?, ?)
+      `)
+      transactionStmt.run(userId, amount, reason, Date.now())
+
+      // Add credits
+      const stmt = this.db.prepare(`
+        UPDATE user_credits 
+        SET credits_balance = credits_balance + ?, updated_at = ?
+        WHERE user_id = ?
+      `)
+      stmt.run(amount, Date.now(), userId)
+
+      // Return new balance
+      return this.getCreditBalance(userId)
+    } catch (error: any) {
+      throw new DatabaseError(`Failed to reward credits: ${error.message}`)
     }
   }
 

@@ -16,10 +16,10 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy compiled output from dist directory
-COPY dist ./dist
+COPY ../dist ./dist
 
 # Copy environment file
-COPY env.txt ./.env
+COPY ../env.txt ./.env
 
 # Create necessary directories
 RUN mkdir -p ./data ./logs && \

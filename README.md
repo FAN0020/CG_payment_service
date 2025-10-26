@@ -240,16 +240,32 @@ CG_payment_service/
 │   ├── validate-env.js
 │   └── generate-test-jwt.js
 ├── docs/
-│   └── openapi.yaml             # API specification
+│   ├── openapi.yaml             # API specification
+│   └── DOCKER.md                # Docker configuration guide
 ├── Makefile                     # Professional commands
 └── README.md                    # This file
 ```
+
+## 🐳 Docker Deployment
+
+### Quick Docker Start
+```bash
+# Build and run with Docker Compose
+cd docker
+docker compose up -d
+
+# Verify deployment
+curl http://localhost:8790/api/credits/health
+```
+
+**📖 Complete Docker Guide**: See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker configuration, volume management, security settings, and production deployment instructions.
 
 ## 🚀 Production Deployment
 
 ### Pre-Deployment Checklist
 - [x] Remove mock Stripe code
 - [x] Setup real Stripe integration structure
+- [x] Docker configuration ready
 - [ ] Configure your Stripe keys in .env
 - [ ] Switch to live Stripe keys (`sk_live_...`) for production
 - [ ] Create live products and update Price IDs

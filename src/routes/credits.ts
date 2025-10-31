@@ -53,11 +53,11 @@ export async function registerCreditsRoutes(
       logger.info(`[${requestId}] Getting credits status for user: ${userId}`)
 
       // Check if user has active subscription
-      const subscription = await db.getActiveSubscription(userId)
+      const subscription = db.getActiveSubscription(userId)
       const isPremium = subscription && subscription.status === 'active'
 
       // Get credit balance
-      const creditBalance = await db.getCreditBalance(userId)
+      const creditBalance = db.getCreditBalance(userId)
 
       // Determine if user can skip ads (premium or has credits)
       const canSkipAds = isPremium || (creditBalance || 0) > 0

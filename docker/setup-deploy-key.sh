@@ -50,3 +50,5 @@ echo "- Only used during build process, not in runtime"
 echo ""
 
 echo "✅ Setup complete! You can now run: docker build -f docker/Dockerfile -t classguru-payment-service ."
+
+

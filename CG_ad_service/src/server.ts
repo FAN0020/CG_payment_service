@@ -7,9 +7,10 @@ import { dirname, join } from 'path';
 import { logger } from './lib/logger.js';
 import { initDatabase, closeDatabase } from './lib/database.js';
 import { initGoogleAds } from './lib/google-ads.js';
+import { initializeProviders } from './providers/registry.js';
 import { registerAdRoutes } from './routes/index.js';
 import { registerRequestId } from './middleware/request-id.js';
-import { startRevenueSyncScheduler } from './revenue/sync.js';
+import { startRevenueSyncScheduler, stopRevenueSyncScheduler } from './revenue/sync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,11 +26,15 @@ async function startServer(): Promise<void> {
   try {
     // Initialize database
     logger.info('Initializing database...');
-    await initDatabase();
+    initDatabase();
 
     // Initialize Google Ads
     logger.info('Initializing Google Ads...');
     await initGoogleAds();
+
+    // Initialize providers
+    logger.info('Initializing providers...');
+    initializeProviders();
 
     // Create Fastify instance
     const fastify = Fastify({
@@ -132,8 +137,9 @@ async function startServer(): Promise<void> {
       logger.info(`Received ${signal}, shutting down gracefully...`);
       
       try {
+        stopRevenueSyncScheduler();
         await fastify.close();
-        await closeDatabase();
+        closeDatabase();
         logger.info('Server closed successfully');
         process.exit(0);
       } catch (error) {

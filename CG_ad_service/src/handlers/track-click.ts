@@ -99,6 +99,11 @@ export async function handleAdClick(
           userId,
           clickUrl,
         });
+
+        // Update click record with revenue if provider returned it
+        if (clickResult.revenue !== undefined && clickResult.revenue > 0) {
+          db.prepare('UPDATE ad_clicks SET revenue = ? WHERE id = ?').run(clickResult.revenue, clickId);
+        }
       } catch (error) {
         logger.error('Provider onClick hook failed', { error, provider, requestId });
       }

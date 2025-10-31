@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+// i #!/usr/bin/env node
 
 /**
  * Export Promo Codes to Excel

@@ -54,23 +54,24 @@ async function loadAd() {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || 'Failed to load ad');
+      throw new Error(data.error?.message || data.error || 'Failed to load ad');
     }
 
     // Check if user skipped ads (premium/credits)
-    if (data.skipReason) {
+    if (data.data?.skipReason) {
       adContainer.innerHTML = `
         <div class="loading">
-          <p style="color: #28a745;">✨ Ad skipped (${data.skipReason === 'premium_user' ? 'Premium User' : 'Has Credits'})</p>
+          <p style="color: #28a745;">✨ Ad skipped (${data.data.skipReason === 'premium_user' ? 'Premium User' : 'Has Credits'})</p>
+          ${data.data.newBalance !== undefined ? `<p style="font-size: 12px; color: #666;">Credits remaining: ${data.data.newBalance}</p>` : ''}
         </div>
       `;
-      log(`Ad skipped: ${data.skipReason}`, 'info');
+      log(`Ad skipped: ${data.data.skipReason}`, 'info');
       return;
     }
 
     // Check if ad data is available
-    if (data.data && data.data.content) {
-      const ad = data.data;
+    if (data.data?.ad) {
+      const ad = data.data.ad;
       
       // Display ad
       adContainer.innerHTML = `
@@ -139,14 +140,17 @@ async function trackClick(impressionId, clickUrl) {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || 'Failed to track click');
+      throw new Error(data.error?.message || data.error || 'Failed to track click');
     }
 
     // Update stats
     stats.clicks++;
     updateStats();
 
-    log('Click tracked successfully', 'success');
+    const creditsMsg = data.data?.creditsAwarded 
+      ? ` (${data.data.creditsAwarded} credits awarded!)`
+      : '';
+    log(`Click tracked successfully${creditsMsg}`, 'success');
 
     // Simulate opening ad URL
     if (clickUrl) {

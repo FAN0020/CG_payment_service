@@ -46,14 +46,14 @@ export async function handleAdClick(
     const rateLimitKey = getRateLimitKey(userId, ipAddress, userAgent);
 
     // Rate limiting
-    if (AD_CONFIG.featureFlags.includes('rate_limit')) {
+    if (AD_CONFIG.featureFlags.rateLimit) {
       if (!checkRateLimit(rateLimitKey)) {
         return createErrorResponse('AD_RATE_LIMITED', 'Too many requests', requestId);
       }
     }
 
     // Validate viewability token
-    if (AD_CONFIG.featureFlags.includes('min_display_ms')) {
+    if (AD_CONFIG.featureFlags.minDisplayMs > 0) {
       if (!viewabilityToken || !validateViewabilityToken(viewabilityToken)) {
         return createErrorResponse(
           'AD_VIEWABILITY_NOT_SATISFIED',
@@ -64,7 +64,7 @@ export async function handleAdClick(
     }
 
     // Click dedupe
-    if (AD_CONFIG.featureFlags.includes('dedupe')) {
+    if (AD_CONFIG.featureFlags.dedupe) {
       const key = dedupeClickKey(impressionId, userId, impression.session_id);
       if (isDuplicateClick(key)) {
         return createErrorResponse('AD_CLICK_DEDUPE', 'Duplicate click detected', requestId);
@@ -90,7 +90,7 @@ export async function handleAdClick(
 
     // Provider onClick hook
     const providerInstance = getProviderByName(provider);
-    let clickResult = { success: true, revenue: 0 };
+    let clickResult: { success: boolean; revenue?: number } = { success: true, revenue: 0 };
     if (providerInstance) {
       try {
         clickResult = await providerInstance.onClick({

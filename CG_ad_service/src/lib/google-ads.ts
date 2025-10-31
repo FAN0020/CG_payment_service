@@ -23,20 +23,48 @@ class GoogleAdsManager {
       return;
     }
 
+    // Skip initialization in mock mode
+    if (GOOGLE_ADS_CONFIG.mockMode) {
+      logger.info('Google Ads initialization skipped (mock mode)');
+      this.initialized = false; // Don't mark as initialized in mock mode
+      return;
+    }
+
     try {
       // In a real implementation, you would initialize the Google Ads SDK here
       // For AdSense, you typically load it via script tag in the frontend
       // For AdMob, you would use the mobile SDK
       
+      // Check if configuration is available
+      const hasAdSenseConfig = !!GOOGLE_ADS_CONFIG.adsense.clientId && !!GOOGLE_ADS_CONFIG.adsense.slotId;
+      const hasAdMobConfig = !!GOOGLE_ADS_CONFIG.admob.appId && !!GOOGLE_ADS_CONFIG.admob.bannerUnitId;
+      
+      if (!hasAdSenseConfig && !hasAdMobConfig) {
+        logger.warn('Google Ads enabled but no configuration found. Disabling Google Ads.', {
+          adsense: {
+            hasClientId: !!GOOGLE_ADS_CONFIG.adsense.clientId,
+            hasSlotId: !!GOOGLE_ADS_CONFIG.adsense.slotId,
+          },
+          admob: {
+            hasAppId: !!GOOGLE_ADS_CONFIG.admob.appId,
+            hasBannerUnitId: !!GOOGLE_ADS_CONFIG.admob.bannerUnitId,
+          },
+        });
+        this.enabled = false; // Disable if no config
+        return;
+      }
+      
       logger.info('Google Ads initialized', {
-        adsense: !!GOOGLE_ADS_CONFIG.adsense.clientId,
-        admob: !!GOOGLE_ADS_CONFIG.admob.appId,
+        adsense: hasAdSenseConfig,
+        admob: hasAdMobConfig,
       });
       
       this.initialized = true;
     } catch (error) {
       logger.error('Failed to initialize Google Ads', { error });
-      throw error;
+      // Don't throw - just disable Google Ads
+      this.enabled = false;
+      this.initialized = false;
     }
   }
 
@@ -49,7 +77,7 @@ class GoogleAdsManager {
     slotId: string;
     scriptUrl: string;
   } | null {
-    if (!this.enabled || !GOOGLE_ADS_CONFIG.adsense.clientId) {
+    if (!this.enabled || !GOOGLE_ADS_CONFIG.adsense.clientId || !GOOGLE_ADS_CONFIG.adsense.slotId) {
       return null;
     }
 

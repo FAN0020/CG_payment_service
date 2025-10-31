@@ -1,5 +1,4 @@
-import { recordImpression, getDatabase } from '../lib/database.js';
-import { AD_CONFIG } from '../config/ads.js';
+import { recordImpression } from '../lib/database.js';
 import { logger } from '../lib/logger.js';
 import type { AdRequest } from '../types/index.js';
 import type { ApiResponse, AdObject } from '../types/index.js';

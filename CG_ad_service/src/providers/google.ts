@@ -66,14 +66,14 @@ export const googleProvider: AdProvider = {
     };
   },
 
-  async fetchRevenue?(start: Date, end: Date) {
+  async fetchRevenue(start: Date, end: Date) {
     // In production, this would fetch from Google Ads API
     // For now, return empty array
     logger.info('Fetching Google Ads revenue', { start, end });
     return [];
   },
 
-  async healthCheck?(): Promise<boolean> {
+  async healthCheck(): Promise<boolean> {
     return GOOGLE_ADS_CONFIG.enabled && !!getAdSenseConfig();
   },
 };

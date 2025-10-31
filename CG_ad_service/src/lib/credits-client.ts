@@ -40,7 +40,7 @@ export async function getCreditsStatus(jwt: string): Promise<CreditsStatus | nul
       return null;
     }
 
-    const data = await res.json();
+    const data = await res.json() as any;
     return {
       userId: data.userId,
       isPremium: data.isPremium || false,
@@ -70,7 +70,7 @@ export async function rewardCredits(jwt: string, amount: number, reason?: string
     });
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
+      const errorData = (await res.json().catch(() => ({}))) as any;
       return {
         success: false,
         error: errorData.error || 'Failed to reward credits',
@@ -78,7 +78,7 @@ export async function rewardCredits(jwt: string, amount: number, reason?: string
       };
     }
 
-    const data = await res.json();
+    const data = await res.json() as any;
     return {
       success: true,
       userId: data.userId,
@@ -110,17 +110,15 @@ export async function deductCredits(jwt: string, amount: number, reason?: string
     });
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
+      const errorData = (await res.json().catch(() => ({}))) as any;
       return {
         success: false,
         error: errorData.error || 'Failed to deduct credits',
-        currentBalance: errorData.currentBalance,
-        required: errorData.required,
         requestId: errorData.requestId,
       };
     }
 
-    const data = await res.json();
+    const data = await res.json() as any;
     return {
       success: true,
       userId: data.userId,

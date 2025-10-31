@@ -78,7 +78,7 @@ export const minigameProvider: AdProvider = {
     };
   },
 
-  async onReward?(ctx: ClickContext): Promise<RewardResult> {
+  async onReward(ctx: ClickContext): Promise<RewardResult> {
     // This is called when a mini-game is completed
     logger.info('Mini-game reward', {
       adId: ctx.adId,
@@ -93,13 +93,13 @@ export const minigameProvider: AdProvider = {
     };
   },
 
-  async fetchRevenue?(start: Date, end: Date): Promise<RevenueBatch[]> {
+  async fetchRevenue(start: Date, end: Date): Promise<RevenueBatch[]> {
     // Mini-games revenue is typically based on engagement metrics
     logger.info('Fetching mini-game revenue', { start, end });
     return [];
   },
 
-  async healthCheck?(): Promise<boolean> {
+  async healthCheck(): Promise<boolean> {
     return true; // Always available
   },
 };

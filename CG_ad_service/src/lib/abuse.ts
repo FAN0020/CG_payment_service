@@ -2,7 +2,7 @@
  * Anti-abuse controls: rate limiting, click deduplication, viewability tokens
  */
 
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac } from 'crypto';
 import { AD_CONFIG } from '../config/ads.js';
 import { logger } from './logger.js';
 
@@ -66,11 +66,12 @@ export function getRateLimitKey(
  * Check if request is within rate limit
  */
 export function checkRateLimit(key: string): boolean {
-  if (!AD_CONFIG.featureFlags.includes('rate_limit')) {
+  if (!AD_CONFIG.featureFlags.rateLimit) {
     return true; // Rate limiting disabled
   }
 
-  const config = parseRateLimit(AD_CONFIG.rateLimit);
+  // Default rate limit config (10 requests per minute)
+  const config = { maxRequests: 10, windowMs: 60 * 1000 };
   const now = Date.now();
   const entry = rateLimitStore.get(key);
 
@@ -118,11 +119,11 @@ export function dedupeClickKey(
  * Check if click is a duplicate
  */
 export function isDuplicateClick(key: string): boolean {
-  if (!AD_CONFIG.featureFlags.includes('dedupe')) {
+  if (!AD_CONFIG.featureFlags.dedupe) {
     return false; // Deduplication disabled
   }
 
-  const windowMs = AD_CONFIG.dedupeWindowMs;
+  const windowMs = 60 * 60 * 1000; // 1 hour dedupe window
   const now = Date.now();
   const lastClick = dedupeStore.get(key);
 
@@ -162,7 +163,7 @@ export function issueViewabilityToken(impressionId: string): string {
  * Validate a viewability token and check minimum display time
  */
 export function validateViewabilityToken(token: string): boolean {
-  if (!AD_CONFIG.featureFlags.includes('min_display_ms')) {
+  if (AD_CONFIG.featureFlags.minDisplayMs <= 0) {
     return true; // Validation disabled
   }
 

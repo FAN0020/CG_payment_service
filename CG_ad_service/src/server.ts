@@ -28,9 +28,14 @@ async function startServer(): Promise<void> {
     logger.info('Initializing database...');
     initDatabase();
 
-    // Initialize Google Ads
-    logger.info('Initializing Google Ads...');
-    await initGoogleAds();
+    // Initialize Google Ads (only if not in mock mode)
+    const mockMode = process.env.MOCK_ADS_MODE === 'true';
+    if (!mockMode) {
+      logger.info('Initializing Google Ads...');
+      await initGoogleAds();
+    } else {
+      logger.info('Skipping Google Ads initialization (mock mode enabled)');
+    }
 
     // Initialize providers
     logger.info('Initializing providers...');
@@ -51,9 +56,10 @@ async function startServer(): Promise<void> {
     // Register static file serving for frontend
     const frontendPath = join(__dirname, '..', 'frontend');
     try {
+      // Serve demo.html at /demo.html
       await fastify.register(fastifyStatic, {
         root: frontendPath,
-        prefix: '/demo/',
+        prefix: '/',
       });
       logger.info('Static files registered', { path: frontendPath });
     } catch (error) {

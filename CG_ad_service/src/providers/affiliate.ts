@@ -83,7 +83,7 @@ export const affiliateProvider: AdProvider = {
     };
   },
 
-  async fetchRevenue?(start: Date, end: Date): Promise<RevenueBatch[]> {
+  async fetchRevenue(start: Date, end: Date): Promise<RevenueBatch[]> {
     // In production, this would fetch from affiliate API
     logger.info('Fetching affiliate revenue', { start, end });
 
@@ -91,7 +91,7 @@ export const affiliateProvider: AdProvider = {
     return [];
   },
 
-  async healthCheck?(): Promise<boolean> {
+  async healthCheck(): Promise<boolean> {
     // In production, ping the affiliate API
     return this.active;
   },

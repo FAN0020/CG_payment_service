@@ -2,8 +2,8 @@
  * Provider registry and selection logic
  */
 
-import type { AdProvider, ProviderContext, ProviderSelectionStrategy } from './types.js';
-import type { ProviderConfig } from './types.js';
+import type { AdProvider, ProviderSelectionStrategy, ProviderConfig } from './types.js';
+import type { ProviderContext } from '../types/index.js';
 import { logger } from '../lib/logger.js';
 import { AD_CONFIG } from '../config/ads.js';
 import { googleProvider } from './google.js';
@@ -113,17 +113,15 @@ function selectRoundRobin(activeProviders: AdProvider[]): AdProvider {
  * Weighted random selection
  */
 function selectWeightedRandom(activeProviders: AdProvider[]): AdProvider {
-  // Get weights from config or use provider weights
-  const weights = AD_CONFIG.providers.weights;
+  // Use provider weights directly
   const totalWeight = activeProviders.reduce((sum, p) => {
-    const weight = weights[p.name] || p.weight || 100;
-    return sum + weight;
+    return sum + (p.weight || 100);
   }, 0);
 
   let random = Math.random() * totalWeight;
 
   for (const provider of activeProviders) {
-    const weight = weights[provider.name] || provider.weight || 100;
+    const weight = provider.weight || 100;
     random -= weight;
     if (random <= 0) {
       return provider;

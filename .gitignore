@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+env.txt
 
 # Dependencies
 node_modules/
@@ -44,8 +45,11 @@ tmp/
 temp/
 *.tmp
 
-# Nested git repositories
-CG_ad_service/
+# SSH deploy keys (security)
+deploy_key
+*.pem
+*.key
+
 
 
 

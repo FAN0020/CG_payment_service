@@ -1,0 +1,26 @@
+# ============================================
+# frp Client Configuration for ClassGuru Ad Service
+# ============================================
+# This configuration maps local ad service (port 8791) 
+# to public domain: ym.test.classguruai.com
+# ============================================
+
+serverAddr = "154.36.178.157"
+serverPort = 7000
+
+[auth]
+method = "token"
+token  = "classguruaipwd12262wenyz"
+
+[[proxies]]
+name       = "ym"
+type       = "tcp"
+localIP    = "127.0.0.1"
+localPort  = 8791
+remotePort = 12280
+
+# Usage:
+# 1. Make sure your ad service is running on http://localhost:8791
+# 2. Run frpc: frpc -c frpc.toml
+# 3. Access via: http://ym.test.classguruai.com
+# 4. Demo page: http://ym.test.classguruai.com/demo/demo.html

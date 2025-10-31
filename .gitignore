@@ -2,7 +2,6 @@
 .env
 .env.local
 .env.*.local
-env.txt
 
 # Dependencies
 node_modules/
@@ -44,11 +43,6 @@ coverage/
 tmp/
 temp/
 *.tmp
-
-# SSH deploy keys (security)
-deploy_key
-*.pem
-*.key
 
 
 

@@ -59,10 +59,14 @@ export async function registerCreditsRoutes(
       // Get credit balance
       const creditBalance = await db.getCreditBalance(userId)
 
+      // Determine if user can skip ads (premium or has credits)
+      const canSkipAds = isPremium || (creditBalance || 0) > 0
+
       return {
         userId,
         isPremium,
         creditBalance: creditBalance || 0,
+        canSkipAds,
         requestId
       }
 

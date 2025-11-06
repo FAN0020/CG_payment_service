@@ -2,11 +2,24 @@ import Database from 'better-sqlite3'
 import { SubscriptionOrder, PaymentEvent, DatabaseError, ActivationCode } from '../types/index.js'
 import { logger } from './logger.js'
 import { getEncryptionManager } from './encryption.js'
+import { mkdirSync } from 'fs'
+import { dirname } from 'path'
 
 export class PaymentDatabase {
   private db: Database.Database
 
   constructor(dbPath: string) {
+    // Ensure the directory exists before creating the database
+    try {
+      const dbDir = dirname(dbPath)
+      mkdirSync(dbDir, { recursive: true })
+      logger.info(`Database directory ensured: ${dbDir}`)
+    } catch (error: any) {
+      logger.error(`Failed to create database directory: ${error.message}`)
+      throw new DatabaseError(`Failed to create database directory: ${error.message}`)
+    }
+
+    // Create database connection (better-sqlite3 will create the file if it doesn't exist)
     this.db = new Database(dbPath)
     this.initializeTables()
   }

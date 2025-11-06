@@ -13,7 +13,11 @@ build/
 *.js.map
 
 # Database files
-data/
+# Note: data/ directory structure is preserved via .gitkeep
+# Only database files are ignored, not the directory itself
+data/*.db
+data/*.db-shm
+data/*.db-wal
 *.db
 *.db-shm
 *.db-wal

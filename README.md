@@ -1,8 +1,21 @@
 # ClassGuru Payment Service
 
-**Standalone Stripe subscription billing microservice for ClassGuru**
+A standalone TypeScript/Fastify service for subscription billing and credit management in ClassGuruAI, an education product.
 
-Production-ready payment service with comprehensive testing, modern tooling, and clean architecture.
+## Project context
+
+Developed as part of the ClassGuruAI team for the Chunhui Cup Innovation & Entrepreneurship Competition. My contribution focused on the payment microservice, connecting subscription checkout with authentication, persistent order state, and credit-management APIs.
+
+## Engineering highlights
+
+- **Subscription billing:** Stripe checkout and signature-verified webhooks, with event tracking to handle repeated notifications.
+- **Application integration:** JWT authentication and APIs for subscription and credit-management workflows.
+- **Data and concurrency:** SQLite in WAL mode, persistent orders, and request-idempotency records.
+- **Delivery tooling:** Docker Compose configuration, health checks, Makefile commands, structured logging, and OpenAPI documentation.
+
+**Stack:** TypeScript · Fastify · Stripe · SQLite · JWT · Docker
+
+Explore the [API specification](docs/openapi.yaml), [integration guide](docs/integration-guide.md), and [Docker guide](docs/DOCKER.md).
 
 ## 🚀 Quick Start
 
@@ -12,8 +25,8 @@ Production-ready payment service with comprehensive testing, modern tooling, and
 npm install
 
 # 2. Configure environment
-cp .env.example .env
-# Edit .env with your Stripe keys and JWT secret
+# Create .env using the Required Environment Variables section below
+# Add your Stripe test keys and JWT secret
 
 # 3. Validate configuration
 npm run validate
@@ -42,12 +55,12 @@ open http://localhost:8790/payment
 
 ## 📋 What's Included
 
-- **TypeScript codebase** (~1,700 lines of production code)
-- **Complete Stripe integration** with webhooks and idempotency
+- **TypeScript codebase** with Fastify API routes and a separate frontend
+- **Stripe integration** with webhooks and idempotency
 - **SQLite database** for order and subscription tracking
-- **Professional tooling** (Makefile, validation scripts, health checks)
+- **Development tooling** (Makefile, validation scripts, health checks)
 - **Modern frontend** following ClassGuru design system
-- **Comprehensive test suite** with 60+ tests
+- **Test utilities** for integration scenarios, concurrent checkout, and webhooks
 
 ## 🏗️ Architecture
 
@@ -163,15 +176,16 @@ DB_PATH=./data/payment.db
 }
 ```
 
-## 🧪 Testing
+## 🧪 Validation and Test Utilities
 
-The service includes comprehensive testing:
+The repository defines TypeScript validation commands:
 
-- ✅ Database: 13/13 tests passed
-- ✅ JWT: 11/11 tests passed  
-- ✅ Server: Running
-- ✅ API Routes: 5/10 tests passed (Stripe integration)
-- ✅ Frontend: 25/26 tests passed
+```bash
+npm run type-check
+npm run build
+```
+
+Additional test utilities are available in [tests/integration](tests/integration), [scripts/test-concurrent-checkout.js](scripts/test-concurrent-checkout.js), and [scripts/test-webhooks.js](scripts/test-webhooks.js). Consult each script for its configuration and service requirements. Record the environment and command output when reporting results.
 
 ## 🔍 Troubleshooting
 
@@ -293,5 +307,4 @@ FRONTEND_CANCEL_URL=https://classguru.com/payment/cancel
 ---
 
 **Built with**: TypeScript, Fastify, Stripe, SQLite, JWT  
-**Status**: Production Ready  
-**Last Updated**: October 2025
+**Documentation updated**: September 2026

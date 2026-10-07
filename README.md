@@ -2,6 +2,24 @@
 
 A standalone TypeScript/Fastify service for subscription billing and credit management in ClassGuruAI, an education product.
 
+## Reviewer snapshot
+
+| Area | Outcome and evidence |
+| --- | --- |
+| Classification | Backend engineering · team contribution · TypeScript, Fastify, Stripe, SQLite |
+| Deliverable | Subscription checkout, authenticated billing/credit APIs, persistent orders, and idempotent webhook processing |
+| Verification | **TypeScript checking and compilation passed** on 7 October 2026. [Commands and environment](docs/verification-2026-10-07.md) |
+| Limits | These checks do not establish live Stripe behavior, database runtime compatibility, or production readiness. |
+
+## Contents
+
+| Start here | Details |
+| --- | --- |
+| [Project context](#project-context) · [Engineering highlights](#engineering-highlights) | My contribution and service scope |
+| [Quick start](#quick-start) · [Configuration](#configuration) | Local setup |
+| [Verification](docs/verification-2026-10-07.md) · [Validation utilities](#validation-and-test-utilities) | Recorded results and further checks |
+| [API specification](docs/openapi.yaml) · [Integration guide](docs/integration-guide.md) · [Docker guide](docs/DOCKER.md) | Interfaces and deployment setup |
+
 ## Project context
 
 Developed as part of the ClassGuruAI team for the Chunhui Cup Innovation & Entrepreneurship Competition. My contribution focused on the payment microservice, connecting subscription checkout with authentication, persistent order state, and credit-management APIs.
@@ -17,7 +35,7 @@ Developed as part of the ClassGuruAI team for the Chunhui Cup Innovation & Entre
 
 Explore the [API specification](docs/openapi.yaml), [integration guide](docs/integration-guide.md), and [Docker guide](docs/DOCKER.md).
 
-## 🚀 Quick Start
+## Quick start
 
 ### Setup
 ```bash
@@ -53,7 +71,7 @@ npm run generate-jwt
 open http://localhost:8790/payment
 ```
 
-## 📋 What's Included
+## What's included
 
 - **TypeScript codebase** with Fastify API routes and a separate frontend
 - **Stripe integration** with webhooks and idempotency
@@ -62,7 +80,7 @@ open http://localhost:8790/payment
 - **Modern frontend** following ClassGuru design system
 - **Test utilities** for integration scenarios, concurrent checkout, and webhooks
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -93,7 +111,7 @@ open http://localhost:8790/payment
 └─────────────────────────────────────────────┘
 ```
 
-## 🛠️ Available Commands
+## Available commands
 
 ### Make Commands
 ```bash
@@ -114,7 +132,7 @@ npm run generate-jwt  # Generate test JWT token
 npm run kill-server   # Kill existing server
 ```
 
-## 💳 Payment Plans
+## Payment plans
 
 - **Daily Plan**: S$1.99 SGD/day recurring
 - **Weekly Plan**: S$9.90 SGD/week recurring  
@@ -125,7 +143,7 @@ npm run kill-server   # Kill existing server
 - **3D Secure**: `4000 0025 0000 3155`
 - **Declined**: `4000 0000 0000 9995`
 
-## 🔧 Configuration
+## Configuration
 
 ### Required Environment Variables
 ```env
@@ -155,7 +173,7 @@ DB_PATH=./data/payment.db
 3. Copy Price IDs to `.env`
 4. For webhooks: `stripe listen --forward-to localhost:8790/webhooks/stripe`
 
-## 📊 API Reference
+## API reference
 
 ### Endpoints
 | Endpoint | Method | Auth | Description |
@@ -176,7 +194,7 @@ DB_PATH=./data/payment.db
 }
 ```
 
-## 🧪 Validation and Test Utilities
+## Validation and test utilities
 
 The repository defines TypeScript validation commands:
 
@@ -187,7 +205,7 @@ npm run build
 
 Additional test utilities are available in [tests/integration](tests/integration), [scripts/test-concurrent-checkout.js](scripts/test-concurrent-checkout.js), and [scripts/test-webhooks.js](scripts/test-webhooks.js). Consult each script for its configuration and service requirements. Record the environment and command output when reporting results.
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -223,7 +241,7 @@ sqlite3 data/payment.db "SELECT * FROM subscription_orders;"
 curl http://localhost:8790/api/payment/health
 ```
 
-## 📁 Project Structure
+## Project structure
 
 ```
 CG_payment_service/
@@ -260,7 +278,7 @@ CG_payment_service/
 └── README.md                    # This file
 ```
 
-## 🐳 Docker Deployment
+## Docker deployment
 
 ### Quick Docker Start
 ```bash
@@ -274,7 +292,7 @@ curl http://localhost:8790/api/credits/health
 
 **📖 Complete Docker Guide**: See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker configuration, volume management, security settings, and production deployment instructions.
 
-## 🚀 Production Deployment
+## Production deployment
 
 ### Pre-Deployment Checklist
 - [x] Remove mock Stripe code
@@ -298,7 +316,7 @@ FRONTEND_SUCCESS_URL=https://classguru.com/payment/success
 FRONTEND_CANCEL_URL=https://classguru.com/payment/cancel
 ```
 
-## 📞 Support
+## Support
 
 - **Stripe Docs**: [stripe.com/docs](https://stripe.com/docs)
 - **Test Cards**: [stripe.com/docs/testing](https://stripe.com/docs/testing)
